@@ -18,6 +18,12 @@
 - `cargo test`：6 个 Rust 测试通过。
 - `npm run tauri build -- --no-bundle`：WSL release 应用构建通过。
 
+## 已修复问题
+
+- Windows 安装版启动时同时出现 CMD 窗口：发布构建已切换为 Windows GUI 子系统，开发构建仍保留控制台日志。
+- 保存设置时错误地重复禁用不存在的开机启动项：现改为先读取系统状态，仅在开关发生变化时调用启用或禁用。
+- 设置页“保存设置”按钮因白底白字显示为空白：已修正主按钮样式优先级。
+
 ## 当前限制
 
 - 当前开发环境为 WSL；Windows 原生通知、Credential Manager、WebView2、托盘和 NSIS 安装流程必须在 Windows 环境验收。

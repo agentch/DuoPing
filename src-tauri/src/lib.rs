@@ -162,12 +162,18 @@ async fn update_settings(
     settings: AppSettings,
 ) -> Result<AppSettings, String> {
     let settings = settings.normalize()?;
-    if settings.autostart {
-        app.autolaunch().enable()
-    } else {
-        app.autolaunch().disable()
+    let autostart = app.autolaunch();
+    let autostart_enabled = autostart
+        .is_enabled()
+        .map_err(|_| "无法读取开机启动状态".to_string())?;
+    if settings.autostart != autostart_enabled {
+        if settings.autostart {
+            autostart.enable()
+        } else {
+            autostart.disable()
+        }
+        .map_err(|_| "无法更新开机启动设置".to_string())?;
     }
-    .map_err(|_| "无法更新开机启动设置".to_string())?;
     let store = app
         .store("duoping.json")
         .map_err(|_| "无法打开设置存储".to_string())?;

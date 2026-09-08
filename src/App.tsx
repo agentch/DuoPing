@@ -145,8 +145,8 @@ export default function App() {
               <h2>检查时间</h2>
               <div className="time-list">{settings.checkTimes.map((time) => <span key={time}>{time}<button aria-label={`删除 ${time}`} onClick={() => setSettings({ ...settings, checkTimes: settings.checkTimes.filter((item) => item !== time) })}>×</button></span>)}</div>
               <div className="row compact"><input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} /><button onClick={addTime}>添加时间</button></div>
-              <label className="toggle"><input type="checkbox" checked={settings.skipIfCompleted} onChange={(e) => setSettings({ ...settings, skipIfCompleted: e.target.checked })} />完成目标后停止当天提醒</label>
-              <label className="toggle"><input type="checkbox" checked={settings.autostart} onChange={(e) => setSettings({ ...settings, autostart: e.target.checked })} />开机时自动启动</label>
+              <label className="toggle"><input type="checkbox" checked={settings.skipIfCompleted} onChange={(e) => { setMessage(""); setSettings({ ...settings, skipIfCompleted: e.target.checked }); }} />完成目标后停止当天提醒</label>
+              <label className="toggle"><input type="checkbox" checked={settings.autostart} onChange={(e) => { setMessage(""); setSettings({ ...settings, autostart: e.target.checked }); }} />开机时自动启动</label>
               <div className="actions"><button className="primary" onClick={saveSettings} disabled={busy}>保存设置</button><button onClick={() => api.testNotification().then(() => setMessage("测试通知已发送"))}>测试通知</button></div>
             </section>
           </>
@@ -156,4 +156,3 @@ export default function App() {
     </main>
   );
 }
-
