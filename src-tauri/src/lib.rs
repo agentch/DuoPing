@@ -269,6 +269,7 @@ fn test_notification(app: AppHandle) -> Result<(), String> {
 
 fn show_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
         let _ = window.show();
         let _ = window.set_focus();
     }
@@ -285,7 +286,12 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     tauri::async_runtime::block_on(async {
         *state.tray_status.lock().await = Some(current);
     });
+    let icon = app
+        .default_window_icon()
+        .cloned()
+        .ok_or_else(|| tauri::Error::AssetNotFound("default window icon".into()))?;
     TrayIconBuilder::new()
+        .icon(icon)
         .tooltip("DuoPing")
         .menu(&menu)
         .show_menu_on_left_click(false)
@@ -345,11 +351,15 @@ pub fn run() {
             scheduler::start(app.handle().clone(), state);
             Ok(())
         })
-        .on_window_event(|window, event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
+        .on_window_event(|window, event| match event {
+            WindowEvent::CloseRequested { api, .. } => {
                 api.prevent_close();
                 let _ = window.hide();
             }
+            WindowEvent::Resized(_) if window.is_minimized().unwrap_or(false) => {
+                let _ = window.hide();
+            }
+            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             get_settings,
