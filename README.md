@@ -28,6 +28,8 @@ npm run tauri dev
 npm run tauri build
 ```
 
+也可以在 GitHub 仓库的 **Actions → CI → Run workflow** 手动构建。任务完成后，在该次运行页面底部的 Artifacts 区域下载 `DuoPing-Windows-NSIS-*`；构建产物保留 30 天。
+
 ## 导入会话
 
 1. 在浏览器登录 `duolingo.com`。
@@ -43,4 +45,3 @@ npm run tauri build
 ## License
 
 [MIT](LICENSE)
-
