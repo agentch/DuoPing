@@ -12,7 +12,7 @@ use duolingo::{DuolingoProvider, HttpDuolingoProvider, ProviderError};
 use model::{AppSettings, CheckResult, DailyStatus, Freshness};
 use tauri::{
     menu::{Menu, MenuItem},
-    tray::TrayIconBuilder,
+    tray::{TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager, State, WindowEvent,
 };
 use tauri_plugin_autostart::ManagerExt as AutostartExt;
@@ -376,6 +376,11 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
         .tooltip("DuoPing")
         .menu(&menu)
         .show_menu_on_left_click(false)
+        .on_tray_icon_event(|tray, event| {
+            if matches!(event, TrayIconEvent::DoubleClick { .. }) {
+                show_window(tray.app_handle());
+            }
+        })
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => show_window(app),
             "duolingo" => {
