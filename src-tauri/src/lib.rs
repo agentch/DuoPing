@@ -15,6 +15,7 @@ use tauri::{
     AppHandle, Manager, State, WindowEvent,
 };
 use tauri_plugin_autostart::ManagerExt as AutostartExt;
+#[cfg(not(windows))]
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_store::StoreExt;
@@ -91,7 +92,7 @@ fn send_actionable_notification(
         .map_err(|error| format!("无法发送 Windows 通知：{error}"))?;
     let app = app.clone();
     std::thread::spawn(move || {
-        let _ = handle.wait_for_response(move |response| match response {
+        let _ = handle.wait_for_response(move |response: &NotificationResponse| match response {
             NotificationResponse::Default => show_window(&app),
             NotificationResponse::Action(action) if action == "learn" => {
                 let _ = app.opener().open_url(DUOLINGO_LEARN_URL, None::<&str>);
