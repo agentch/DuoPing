@@ -56,6 +56,20 @@ pub struct DailyStatus {
     pub last_successful_check: Option<DateTime<Utc>>,
     pub freshness: Freshness,
     pub username: Option<String>,
+    #[serde(default)]
+    pub quests: Vec<DailyQuest>,
+    #[serde(default)]
+    pub quests_last_successful_check: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DailyQuest {
+    pub id: String,
+    pub title: String,
+    pub current: u32,
+    pub target: u32,
+    pub completed: bool,
 }
 
 impl DailyStatus {
@@ -68,6 +82,8 @@ impl DailyStatus {
             last_successful_check: None,
             freshness: Freshness::Never,
             username: None,
+            quests: vec![],
+            quests_last_successful_check: None,
         }
     }
 

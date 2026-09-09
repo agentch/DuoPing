@@ -5,6 +5,8 @@ use reqwest::{Client, StatusCode};
 use serde_json::Value;
 use thiserror::Error;
 
+use crate::model::DailyQuest;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct UserSummary {
     pub user_id: String,
@@ -32,6 +34,12 @@ pub trait DuolingoProvider: Send + Sync {
         user: &UserSummary,
         date: NaiveDate,
     ) -> Result<u32, ProviderError>;
+    async fn daily_quests(
+        &self,
+        token: &str,
+        user: &UserSummary,
+        timezone: &str,
+    ) -> Result<Vec<DailyQuest>, ProviderError>;
 }
 
 pub struct HttpDuolingoProvider {
@@ -108,6 +116,47 @@ impl DuolingoProvider for HttpDuolingoProvider {
             .map_err(|_| ProviderError::UpstreamChanged)?;
         parse_daily_xp(&body, date).ok_or(ProviderError::UpstreamChanged)
     }
+
+    async fn daily_quests(
+        &self,
+        token: &str,
+        user: &UserSummary,
+        timezone: &str,
+    ) -> Result<Vec<DailyQuest>, ProviderError> {
+        let headers = |request: reqwest::RequestBuilder| {
+            request
+                .bearer_auth(token)
+                .header("x-requested-with", "XMLHttpRequest")
+                .header("accept", "application/json; charset=UTF-8")
+        };
+        let schema = headers(
+            self.client
+                .get("https://goals-api.duolingo.com/schema?ui_language=en"),
+        )
+        .send()
+        .await
+        .map_err(|_| ProviderError::Network)?;
+        classify_status(schema.status())?;
+        let schema: Value = schema
+            .json()
+            .await
+            .map_err(|_| ProviderError::UpstreamChanged)?;
+        let progress_url = format!(
+            "https://goals-api.duolingo.com/users/{}/progress?timezone={}&ui_language=en",
+            urlencoding::encode(&user.user_id),
+            urlencoding::encode(timezone)
+        );
+        let progress = headers(self.client.get(progress_url))
+            .send()
+            .await
+            .map_err(|_| ProviderError::Network)?;
+        classify_status(progress.status())?;
+        let progress: Value = progress
+            .json()
+            .await
+            .map_err(|_| ProviderError::UpstreamChanged)?;
+        parse_daily_quests(&schema, &progress).ok_or(ProviderError::UpstreamChanged)
+    }
 }
 
 fn classify_status(status: StatusCode) -> Result<(), ProviderError> {
@@ -168,6 +217,78 @@ fn parse_daily_xp(body: &Value, target: NaiveDate) -> Option<u32> {
     }
 }
 
+fn parse_daily_quests(schema: &Value, progress: &Value) -> Option<Vec<DailyQuest>> {
+    let goals = schema.get("goals")?.as_array()?;
+    let earned = progress
+        .get("badges")
+        .and_then(|badges| badges.get("earned"))
+        .and_then(Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(Value::as_str)
+                .collect::<std::collections::HashSet<_>>()
+        })
+        .unwrap_or_default();
+    let values = progress
+        .get("goals")
+        .and_then(|goals| goals.get("progress"))
+        .and_then(Value::as_object)?;
+
+    goals
+        .iter()
+        .filter(|goal| {
+            goal.get("category")
+                .and_then(Value::as_array)
+                .is_some_and(|categories| {
+                    categories
+                        .iter()
+                        .any(|value| value.as_str() == Some("DAILY"))
+                })
+        })
+        .map(|goal| {
+            let id = goal.get("goalId")?.as_str()?.to_owned();
+            let badge_id = goal.get("badgeId").and_then(Value::as_str);
+            let title = goal
+                .get("title")
+                .and_then(|title| title.get("uiString"))
+                .and_then(Value::as_str)
+                .or_else(|| goal.get("title").and_then(Value::as_str))?
+                .to_owned();
+            let target = goal
+                .get("threshold")?
+                .as_u64()
+                .and_then(|value| u32::try_from(value).ok())?;
+            let raw_progress = values.get(&id).or_else(|| {
+                goal.get("metric")
+                    .and_then(Value::as_str)
+                    .and_then(|metric| values.get(metric))
+            });
+            let mut current = raw_progress
+                .and_then(|value| {
+                    value
+                        .as_u64()
+                        .or_else(|| value.get("progress").and_then(Value::as_u64))
+                })
+                .and_then(|value| u32::try_from(value).ok())
+                .unwrap_or(0)
+                .min(target);
+            let completed = earned.contains(id.as_str())
+                || badge_id.is_some_and(|value| earned.contains(value));
+            if completed {
+                current = target;
+            }
+            Some(DailyQuest {
+                id,
+                title,
+                current,
+                target,
+                completed,
+            })
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -196,5 +317,47 @@ mod tests {
         );
         assert_eq!(parse_daily_xp(&json!({"summaries":[]}), date), Some(0));
         assert_eq!(parse_daily_xp(&json!({"unexpected":[]}), date), None);
+    }
+
+    #[test]
+    fn parses_daily_quests_with_partial_and_completed_progress() {
+        let schema = json!({"goals":[
+            {"goalId":"daily_lessons","badgeId":"badge_lessons","category":["DAILY"],"metric":"LESSONS","threshold":3,"title":{"uiString":"Complete 3 lessons"}},
+            {"goalId":"daily_xp","badgeId":"badge_xp","category":["DAILY"],"metric":"XP","threshold":50,"title":{"uiString":"Earn 50 XP"}},
+            {"goalId":"monthly","category":["MONTHLY"],"threshold":1,"title":{"uiString":"Ignore"}}
+        ]});
+        let progress = json!({"goals":{"progress":{"daily_lessons":{"progress":2},"daily_xp":12}},"badges":{"earned":["badge_xp"]}});
+        assert_eq!(
+            parse_daily_quests(&schema, &progress),
+            Some(vec![
+                DailyQuest {
+                    id: "daily_lessons".into(),
+                    title: "Complete 3 lessons".into(),
+                    current: 2,
+                    target: 3,
+                    completed: false
+                },
+                DailyQuest {
+                    id: "daily_xp".into(),
+                    title: "Earn 50 XP".into(),
+                    current: 50,
+                    target: 50,
+                    completed: true
+                },
+            ])
+        );
+    }
+
+    #[test]
+    fn rejects_unrecognized_daily_quest_shapes() {
+        assert_eq!(
+            parse_daily_quests(&json!({"goals": []}), &json!({"goals": {"progress": {}}})),
+            Some(vec![])
+        );
+        assert_eq!(
+            parse_daily_quests(&json!({"goals": [{}]}), &json!({"goals": {"progress": {}}})),
+            Some(vec![])
+        );
+        assert_eq!(parse_daily_quests(&json!({"goals": []}), &json!({})), None);
     }
 }

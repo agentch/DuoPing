@@ -160,6 +160,21 @@ async fn perform_check(app: &AppHandle, state: &Arc<AppState>, notify: bool) -> 
             return to_result(error);
         }
     };
+    let (quests, quests_last_successful_check) = match state
+        .provider
+        .daily_quests(&token, &user, &local_timezone())
+        .await
+    {
+        Ok(quests) => (quests, Some(Utc::now())),
+        Err(error) => {
+            log::warn!("failed to read daily quests: {error}");
+            let previous = state.status.lock().await;
+            (
+                previous.quests.clone(),
+                previous.quests_last_successful_check,
+            )
+        }
+    };
     let settings = state.settings.lock().await.clone();
     let status = DailyStatus {
         date: today,
@@ -169,6 +184,8 @@ async fn perform_check(app: &AppHandle, state: &Arc<AppState>, notify: bool) -> 
         last_successful_check: Some(Utc::now()),
         freshness: Freshness::Fresh,
         username: Some(user.username),
+        quests,
+        quests_last_successful_check,
     };
     *state.status.lock().await = status.clone();
     if let Some(item) = state.tray_status.lock().await.as_ref() {
@@ -284,6 +301,17 @@ async fn import_session_value(
     let today = Local::now().date_naive();
     match state.provider.daily_xp(token, &user, today).await {
         Ok(xp) => {
+            let (quests, quests_last_successful_check) = match state
+                .provider
+                .daily_quests(token, &user, &local_timezone())
+                .await
+            {
+                Ok(quests) => (quests, Some(Utc::now())),
+                Err(error) => {
+                    log::warn!("failed to read daily quests after login: {error}");
+                    (vec![], None)
+                }
+            };
             let settings = state.settings.lock().await.clone();
             let status = DailyStatus {
                 date: today,
@@ -293,6 +321,8 @@ async fn import_session_value(
                 last_successful_check: Some(Utc::now()),
                 freshness: Freshness::Fresh,
                 username: Some(user.username),
+                quests_last_successful_check,
+                quests,
             };
             *state.status.lock().await = status.clone();
             persist_status(app, &status);
@@ -300,6 +330,10 @@ async fn import_session_value(
         }
         Err(error) => Ok(to_result(error)),
     }
+}
+
+fn local_timezone() -> String {
+    iana_time_zone::get_timezone().unwrap_or_else(|_| "UTC".into())
 }
 
 #[tauri::command]

@@ -33,6 +33,21 @@ h1 { margin: 4px 0 0; font-size: clamp(30px, 4vw, 46px); line-height: 1.08; lett
 .cards article { padding: 22px; border-radius: 16px; }
 .cards p, .cards small { color: #80857f; margin: 0; font-size: 12px; display: block; }
 .cards strong { font-family: Georgia, serif; font-size: 31px; display: block; margin: 9px 0 5px; }
+.quests-card { background: #fffdf8; border: 1px solid #dedbcf; box-shadow: 0 12px 40px rgba(51,58,48,.06); border-radius: 17px; padding: 25px; margin-top: 16px; }
+.section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.section-heading h2 { margin: 5px 0 0; font-size: 21px; }
+.section-heading > strong { color: #487a33; font-family: Georgia, serif; font-size: 24px; }
+.quest-list { display: grid; gap: 10px; }
+.quest { display: grid; grid-template-columns: 27px 1fr; gap: 11px; align-items: start; padding: 13px; border-radius: 11px; background: #f5f6f0; }
+.quest.done { background: #edf6e8; }
+.quest-check { width: 22px; height: 22px; border: 2px solid #b8c3b5; border-radius: 50%; display: grid; place-items: center; color: white; font-size: 13px; font-weight: 800; }
+.quest.done .quest-check { background: #63a143; border-color: #63a143; }
+.quest strong, .quest small { display: block; }
+.quest strong { font-size: 13px; }
+.quest small { margin-top: 4px; color: #788278; font-size: 12px; }
+.quest-progress { height: 5px; overflow: hidden; border-radius: 999px; background: #dce4d8; margin-top: 9px; }
+.quest-progress i { display: block; height: 100%; border-radius: inherit; background: #77b84f; }
+.quest-updated { display: block; margin-top: 13px; color: #80857f; font-size: 11px; }
 .settings-card { border-radius: 17px; padding: 25px; margin-bottom: 16px; }
 .settings-card h2 { font-size: 15px; margin: 0 0 12px; }
 .settings-card h2:not(:first-child) { margin-top: 28px; }

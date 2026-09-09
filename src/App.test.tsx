@@ -42,6 +42,19 @@ describe("App", () => {
     expect(invoke).toHaveBeenCalledWith("get_status");
   });
 
+  it("shows daily quest progress returned by the backend", async () => {
+    invoke.mockImplementation((command: string) => {
+      if (command === "get_settings") return Promise.resolve({ dailyXpGoal: 50, checkTimes: ["18:00"], skipIfCompleted: true, autostart: false });
+      if (command === "get_status") return Promise.resolve({ date: "2026-09-08", currentXp: 20, targetXp: 50, completed: false, lastSuccessfulCheck: null, freshness: "fresh", username: "learner", quests: [{ id: "daily_lessons", title: "完成 3 节课程", current: 2, target: 3, completed: false }, { id: "daily_xp", title: "获得 50 XP", current: 50, target: 50, completed: true }], questsLastSuccessfulCheck: "2026-09-08T10:00:00Z" });
+      if (command === "has_session") return Promise.resolve(true);
+      return Promise.resolve();
+    });
+    render(<App />);
+    expect(await screen.findByText("完成 3 节课程")).toBeInTheDocument();
+    expect(screen.getByText("2 / 3")).toBeInTheDocument();
+    expect(screen.getByText("已完成")).toBeInTheDocument();
+  });
+
   it("reports when notification permission is denied", async () => {
     isPermissionGranted.mockResolvedValue(false);
     requestPermission.mockResolvedValue("denied");
