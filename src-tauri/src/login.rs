@@ -16,12 +16,17 @@ pub fn open(app: &AppHandle) -> Result<(), String> {
     let url = LOGIN_URL
         .parse::<Url>()
         .map_err(|_| "Duolingo 登录地址无效".to_string())?;
+    let data_directory = app
+        .path()
+        .app_cache_dir()
+        .map_err(|_| "无法创建隔离的登录数据目录".to_string())?
+        .join("login-webview");
     WebviewWindowBuilder::new(app, LOGIN_WINDOW_LABEL, WebviewUrl::External(url))
         .title("登录 Duolingo · DuoPing")
         .inner_size(520.0, 720.0)
         .min_inner_size(420.0, 560.0)
         .center()
-        .incognito(true)
+        .data_directory(data_directory)
         .on_navigation(is_allowed_navigation)
         .build()
         .map_err(|error| format!("无法打开 Duolingo 登录窗口：{error}"))?;
@@ -50,11 +55,14 @@ pub fn close_and_clear(app: &AppHandle) {
         if let Err(error) = window.clear_all_browsing_data() {
             log::warn!("failed to clear login webview data: {error}");
         }
-        let _ = window.close();
+        let _ = window.destroy();
     }
 }
 
 fn is_allowed_navigation(url: &Url) -> bool {
+    if url.as_str() == "about:blank" {
+        return true;
+    }
     if url.scheme() != "https" {
         return false;
     }
@@ -93,6 +101,14 @@ mod tests {
         ));
         assert!(!is_allowed_navigation(
             &"http://www.duolingo.com/log-in".parse().unwrap()
+        ));
+    }
+
+    #[test]
+    fn allows_only_the_safe_initial_blank_page() {
+        assert!(is_allowed_navigation(&"about:blank".parse().unwrap()));
+        assert!(!is_allowed_navigation(
+            &"data:text/html,hello".parse().unwrap()
         ));
     }
 }

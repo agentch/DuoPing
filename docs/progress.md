@@ -7,7 +7,7 @@
 | M0 立项与验证 | 进行中 | 工程、文档、CI、RsProxy 与脱敏 API 契约测试已建立；前后端构建通过，等待有效个人会话实测 |
 | M1 核心数据与设置 | 已实现，待登录实测 | Provider、凭据库、应用内登录、手动会话回退、设置、手动检查、错误分类及状态 UI 已落地 |
 | M2 后台提醒 | 已实现，待 Windows 验收 | 固定时间、跨日、休眠补检、重试、托盘、通知、单实例及开机启动已落地 |
-| M3 发布候选 | 进行中 | 图标、隐私、NSIS 配置及 GitHub Actions 安装包下载已完成；Windows 真机与签名发布待验收 |
+| M3 发布候选 | 进行中 | 图标、隐私、NSIS、CI 安装包及自动 Tag/Release 工作流已完成；Windows 真机与签名发布待验收 |
 
 ## 后续排期
 
@@ -19,7 +19,7 @@
 - `npm run build`：TypeScript 与 Vite 生产构建通过。
 - `cargo fmt --check`：通过。
 - `cargo clippy --all-targets -- -D warnings`：通过。
-- `cargo test`：8 个 Rust 测试通过。
+- `cargo test`：9 个 Rust 测试通过。
 - `npm run tauri build -- --no-bundle`：WSL release 应用构建通过。
 
 ## 已修复问题
@@ -31,7 +31,9 @@
 - 通知交互：发送测试通知前检查并申请权限；点击通知正文恢复 DuoPing，“立即学习”操作打开 Duolingo。Windows 点击回调使用原生通知句柄，待安装版真机验收。
 - Windows CI 条件编译：修正通知扩展 trait 的平台限定，并显式标注通知响应回调的借用类型。
 - 界面反馈：保存设置、测试通知等右下角提示会在 4 秒后自动关闭，同时保留点击关闭。
-- 应用内登录：使用隐私模式 WebView 打开 Duolingo 登录页，限制顶层导航域名，自动检测并验证会话后存入 Windows Credential Manager；保留手动 JWT 导入作为回退。
+- 应用内登录：使用隔离 WebView 打开 Duolingo 登录页，限制顶层导航域名，自动检测并验证会话后存入 Windows Credential Manager；保留手动 JWT 导入作为回退。
+- 登录窗口空白且无法关闭：移除 WebView2 隐私模式依赖，允许安全的初始空白页，使用独立数据目录并在关闭时显式清理销毁；主界面新增“取消登录”入口。
+- 自动发布：从 `main` 手动输入版本，校验三处版本一致且 Tag 不存在；完整测试和 NSIS 构建通过后自动创建 Tag、GitHub Release 并上传安装包。
 
 ## 当前限制
 

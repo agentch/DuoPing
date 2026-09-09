@@ -145,6 +145,16 @@ export default function App() {
     }
   }
 
+  async function cancelLogin() {
+    setLoginActive(false);
+    try {
+      await api.cancelDuolingoLogin();
+      setMessage("已取消 Duolingo 登录");
+    } catch (error) {
+      setMessage(String(error));
+    }
+  }
+
   function addTime() {
     const next = normalizeTimes([...settings.checkTimes, newTime]);
     if (next.length === settings.checkTimes.length) return setMessage("时间无效或已存在");
@@ -199,7 +209,10 @@ export default function App() {
             <section className="settings-card">
               <h2>Duolingo 会话</h2>
               <p className="hint">在独立窗口登录，DuoPing 只读取登录完成后的会话，不会读取或保存账号密码。</p>
-              <div className="actions login-actions"><button className="primary" onClick={startLogin} disabled={busy || loginActive}>{loginActive ? "等待登录…" : "登录 Duolingo"}</button></div>
+              <div className="actions login-actions">
+                <button className="primary" onClick={startLogin} disabled={busy || loginActive}>{loginActive ? "等待登录…" : "登录 Duolingo"}</button>
+                {loginActive && <button onClick={cancelLogin}>取消登录</button>}
+              </div>
               <p className="hint fallback">无法使用登录窗口时，可手动导入浏览器中的 <code>jwt_token</code>。</p>
               <div className="row"><input type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="粘贴 jwt_token" autoComplete="off" /><button onClick={importSession} disabled={busy}>导入并验证</button></div>
               <button className="text-button danger" onClick={() => api.clearSession().then(() => { setStatus(emptyStatus); setMessage("会话已清除"); })}>清除本机会话</button>

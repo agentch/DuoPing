@@ -30,6 +30,14 @@ npm run tauri build
 
 也可以在 GitHub 仓库的 **Actions → CI → Run workflow** 手动构建。任务完成后，在该次运行页面底部的 Artifacts 区域下载 `DuoPing-Windows-NSIS-*`；构建产物保留 30 天。
 
+## 发布版本
+
+1. 先把 `package.json`、`src-tauri/Cargo.toml` 和 `src-tauri/tauri.conf.json` 更新为相同版本并合并到 `main`。
+2. 在 **Actions → Release → Run workflow** 中选择 `main`，输入不含 `v` 的版本号，例如 `0.1.0`。
+3. 工作流通过版本校验、完整测试和 Windows 构建后，自动创建 `v0.1.0` Tag 与 GitHub Release，并把 NSIS `.exe` 作为 Release 附件上传。
+
+已存在的 Tag 不会被覆盖；预发布版本可在运行工作流时勾选 `prerelease`。
+
 ## 登录
 
 在设置页点击“登录 Duolingo”，并在独立隐私窗口中完成登录。DuoPing 检测到有效会话后会自动关闭登录窗口并更新今日状态；账号密码不会进入 DuoPing 前端或日志。

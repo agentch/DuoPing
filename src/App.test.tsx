@@ -55,6 +55,9 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "登录 Duolingo" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("start_duolingo_login"));
     expect(await screen.findByRole("button", { name: "等待登录…" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "取消登录" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("cancel_duolingo_login"));
+    expect(screen.getByRole("button", { name: "登录 Duolingo" })).toBeEnabled();
   });
 
   it("automatically dismisses toast messages", async () => {

@@ -303,6 +303,11 @@ fn start_duolingo_login(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn cancel_duolingo_login(app: AppHandle) {
+    login::close_and_clear(&app);
+}
+
+#[tauri::command]
 async fn poll_duolingo_login(
     app: AppHandle,
     state: State<'_, Arc<AppState>>,
@@ -418,6 +423,15 @@ pub fn run() {
                 if window.label() == "main" {
                     api.prevent_close();
                     let _ = window.hide();
+                } else if window.label() == login::LOGIN_WINDOW_LABEL {
+                    api.prevent_close();
+                    if let Some(login_window) = window
+                        .app_handle()
+                        .get_webview_window(login::LOGIN_WINDOW_LABEL)
+                    {
+                        let _ = login_window.clear_all_browsing_data();
+                        let _ = login_window.destroy();
+                    }
                 }
             }
             WindowEvent::Resized(_)
@@ -434,6 +448,7 @@ pub fn run() {
             check_now,
             import_session,
             start_duolingo_login,
+            cancel_duolingo_login,
             poll_duolingo_login,
             clear_session,
             test_notification

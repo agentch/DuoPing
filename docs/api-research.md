@@ -18,7 +18,7 @@ Duolingo 未提供供普通第三方应用使用的稳定公开 API。DuoPing �
 - 只读请求、15 秒超时、有限重试，不实现课程提交或 XP 修改。
 - 401/403 暂停计划检查；429 单独呈现；5xx/连接失败归为网络错误。
 - JWT 不记录、不写入普通 Store、不返回前端；Windows Credential Manager 是唯一持久化位置。
-- 应用内登录从隐私模式 WebView 的 Duolingo Cookie 存储读取 `jwt_token`；读取发生在 Rust 异步命令中，令牌不经过 React 状态。
+- 应用内登录从隔离 WebView 的 Duolingo Cookie 存储读取 `jwt_token`；读取发生在 Rust 异步命令中，令牌不经过 React 状态。
 - 发布前用用户本人令牌验证，测试与问题报告中只能保留脱敏响应。
 
 参考：[社区 API 说明](https://github.com/api-evangelist/duolingo/blob/main/graphql/duolingo-graphql.md)、[近期 XP endpoint 调研](https://github.com/csutaria/duolingo-dash/blob/main/docs/api-map.md)。

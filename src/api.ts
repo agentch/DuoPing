@@ -9,6 +9,7 @@ export const api = {
   checkNow: () => invoke<CheckResult>("check_now"),
   importSession: (token: string) => invoke<CheckResult>("import_session", { token }),
   startDuolingoLogin: () => invoke<void>("start_duolingo_login"),
+  cancelDuolingoLogin: () => invoke<void>("cancel_duolingo_login"),
   pollDuolingoLogin: () => invoke<CheckResult | null>("poll_duolingo_login"),
   clearSession: () => invoke<void>("clear_session"),
   testNotification: () => invoke<void>("test_notification"),
