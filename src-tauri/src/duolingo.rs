@@ -238,6 +238,11 @@ fn parse_daily_quests(schema: &Value, progress: &Value) -> Option<Vec<DailyQuest
     goals
         .iter()
         .filter(|goal| is_daily_goal(goal.get("category")))
+        .filter(|goal| {
+            goal.get("goalId")
+                .and_then(Value::as_str)
+                .is_some_and(|goal_id| values.is_some_and(|values| values.contains_key(goal_id)))
+        })
         .filter_map(|goal| {
             let id = goal.get("goalId")?.as_str()?.to_owned();
             let badge_id = goal.get("badgeId").and_then(Value::as_str);
@@ -288,14 +293,13 @@ fn parse_daily_quests(schema: &Value, progress: &Value) -> Option<Vec<DailyQuest
 }
 
 fn is_daily_goal(category: Option<&Value>) -> bool {
-    match category {
-        Some(Value::String(value)) => value.contains("DAILY"),
-        Some(Value::Array(values)) => values
-            .iter()
-            .filter_map(Value::as_str)
-            .any(|value| value.contains("DAILY")),
-        _ => false,
-    }
+    let categories = match category {
+        Some(Value::String(value)) => vec![value.as_str()],
+        Some(Value::Array(values)) => values.iter().filter_map(Value::as_str).collect(),
+        _ => return false,
+    };
+    categories.iter().any(|value| value.contains("DAILY"))
+        && !categories.iter().any(|value| value.contains("MONTHLY"))
 }
 
 #[cfg(test)]
@@ -333,7 +337,8 @@ mod tests {
         let schema = json!({"goals":[
             {"goalId":"daily_lessons","badgeId":"badge_lessons","category":["DAILY"],"metric":"LESSONS","threshold":3,"title":{"uiString":"Complete 3 lessons"}},
             {"goalId":"daily_xp","badgeId":"badge_xp","category":["DAILY"],"metric":"XP","threshold":50,"title":{"uiString":"Earn 50 XP"}},
-            {"goalId":"monthly","category":["MONTHLY"],"threshold":1,"title":{"uiString":"Ignore"}}
+            {"goalId":"monthly","category":["DAILY","MONTHLY"],"threshold":1,"title":{"uiString":"Ignore"}},
+            {"goalId":"inactive_daily","category":["DAILY"],"threshold":1,"title":{"uiString":"Inactive"}}
         ]});
         let progress = json!({"goals":{"progress":{"daily_lessons":{"progress":2},"daily_xp":12}},"badges":{"earned":["badge_xp"]}});
         assert_eq!(
@@ -381,23 +386,16 @@ mod tests {
         assert!(is_daily_goal(Some(&json!(["DAILY", "CHALLENGE"]))));
         assert!(is_daily_goal(Some(&json!(["ACTIVE", "DAILY_QUEST"]))));
         assert!(!is_daily_goal(Some(&json!("MONTHLY"))));
+        assert!(!is_daily_goal(Some(&json!(["DAILY", "MONTHLY"]))));
+        assert!(!is_daily_goal(Some(&json!("MONTHLY_DAILY_QUEST"))));
     }
 
     #[test]
-    fn parses_completed_quests_when_progress_map_is_omitted() {
+    fn ignores_catalog_quests_when_progress_map_is_omitted() {
         let schema = json!({"goals":[
             {"goalId":"daily_xp","badgeId":"badge_xp","category":"DAILY_QUEST","threshold":50,"title":{"uiString":"Earn 50 XP"}}
         ]});
         let progress = json!({"badges":{"earned":["badge_xp"]}});
-        assert_eq!(
-            parse_daily_quests(&schema, &progress),
-            Some(vec![DailyQuest {
-                id: "daily_xp".into(),
-                title: "Earn 50 XP".into(),
-                current: 50,
-                target: 50,
-                completed: true,
-            }])
-        );
+        assert_eq!(parse_daily_quests(&schema, &progress), Some(vec![]));
     }
 }
