@@ -50,9 +50,13 @@ pub fn token(app: &AppHandle) -> Result<Option<String>, String> {
     let url = COOKIE_URL
         .parse::<Url>()
         .map_err(|_| "Duolingo Cookie 地址无效".to_string())?;
-    let cookies = window
-        .cookies_for_url(url)
-        .map_err(|_| "暂时无法读取 Duolingo 登录状态".to_string())?;
+    let cookies = match window.cookies_for_url(url) {
+        Ok(cookies) => cookies,
+        Err(error) => {
+            log::debug!("login webview cookies are not ready yet: {error}");
+            return Ok(None);
+        }
+    };
     Ok(cookies
         .into_iter()
         .find(|cookie| cookie.name() == "jwt_token")

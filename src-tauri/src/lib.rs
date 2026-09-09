@@ -326,8 +326,11 @@ async fn poll_duolingo_login(
     else {
         return Ok(None);
     };
+    log::info!("Duolingo login cookie detected; validating session");
     let result = import_session_value(&app, state.inner(), &token).await?;
-    close_login_window(app).await?;
+    if credential::load()?.is_some() {
+        close_login_window(app).await?;
+    }
     Ok(Some(result))
 }
 

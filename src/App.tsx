@@ -69,9 +69,12 @@ export default function App() {
         const result = await api.pollDuolingoLogin();
         if (result) {
           setLoginActive(false);
-          setSessionActive(result.kind === "success");
+          const savedSession = await api.hasSession();
+          setSessionActive(savedSession);
           if (result.kind === "success") setStatus(result.status);
-          setMessage(result.kind === "success" ? "Duolingo 登录成功" : resultMessage(result));
+          setMessage(savedSession
+            ? result.kind === "success" ? "Duolingo 登录成功" : "登录成功，但暂时无法更新今日状态"
+            : resultMessage(result));
         }
       } catch (error) {
         setLoginActive(false);
@@ -80,9 +83,16 @@ export default function App() {
         polling = false;
       }
     };
-    void poll();
     const timer = window.setInterval(poll, 1_500);
-    return () => window.clearInterval(timer);
+    const timeout = window.setTimeout(() => {
+      setLoginActive(false);
+      void api.cancelDuolingoLogin();
+      setMessage("登录等待超时，请重新尝试");
+    }, 5 * 60_000);
+    return () => {
+      window.clearInterval(timer);
+      window.clearTimeout(timeout);
+    };
   }, [loginActive]);
 
   const percent = useMemo(
@@ -126,11 +136,14 @@ export default function App() {
     try {
       const result = await api.importSession(token.trim());
       setToken("");
+      const savedSession = await api.hasSession();
+      setSessionActive(savedSession);
       if (result.kind === "success") {
         setStatus(result.status);
-        setSessionActive(true);
       }
-      setMessage(resultMessage(result));
+      setMessage(savedSession && result.kind !== "success"
+        ? "会话已保存，但暂时无法更新今日状态"
+        : resultMessage(result));
     } catch (error) {
       setMessage(String(error));
     } finally {
