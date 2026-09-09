@@ -283,8 +283,11 @@ fn parse_daily_quests(schema: &Value, progress: &Value) -> Option<Vec<DailyQuest
 
 fn is_daily_goal(category: Option<&Value>) -> bool {
     match category {
-        Some(Value::String(value)) => value == "DAILY",
-        Some(Value::Array(values)) => values.iter().any(|value| value.as_str() == Some("DAILY")),
+        Some(Value::String(value)) => value.contains("DAILY"),
+        Some(Value::Array(values)) => values
+            .iter()
+            .filter_map(Value::as_str)
+            .any(|value| value.contains("DAILY")),
         _ => false,
     }
 }
@@ -364,7 +367,9 @@ mod tests {
     #[test]
     fn accepts_string_or_array_daily_categories() {
         assert!(is_daily_goal(Some(&json!("DAILY"))));
+        assert!(is_daily_goal(Some(&json!("DAILY_QUEST"))));
         assert!(is_daily_goal(Some(&json!(["DAILY", "CHALLENGE"]))));
+        assert!(is_daily_goal(Some(&json!(["ACTIVE", "DAILY_QUEST"]))));
         assert!(!is_daily_goal(Some(&json!("MONTHLY"))));
     }
 }

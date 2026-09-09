@@ -250,7 +250,9 @@ export default function App() {
                   })}
                 </div>
               ) : (
-                <p className="hint">暂无任务数据。连接账号后点击“立即检查”以读取今天的任务进度。</p>
+                <p className="hint">{status.questsLastSuccessfulCheck
+                  ? "已连接 Duolingo，但今天暂未识别到可显示的每日任务。"
+                  : "暂无任务数据。连接账号后点击“立即检查”以读取今天的任务进度。"}</p>
               )}
               {status.questsLastSuccessfulCheck && <small className="quest-updated">任务更新于 {new Date(status.questsLastSuccessfulCheck).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small>}
             </section>

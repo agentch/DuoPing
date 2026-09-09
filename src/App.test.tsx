@@ -55,6 +55,17 @@ describe("App", () => {
     expect(screen.getByText("已完成")).toBeInTheDocument();
   });
 
+  it("distinguishes a successful empty quest response from an unchecked account", async () => {
+    invoke.mockImplementation((command: string) => {
+      if (command === "get_settings") return Promise.resolve({ dailyXpGoal: 50, checkTimes: ["18:00"], skipIfCompleted: true, autostart: false });
+      if (command === "get_status") return Promise.resolve({ date: "2026-09-08", currentXp: 20, targetXp: 50, completed: false, lastSuccessfulCheck: null, freshness: "fresh", username: "learner", quests: [], questsLastSuccessfulCheck: "2026-09-08T10:00:00Z" });
+      if (command === "has_session") return Promise.resolve(true);
+      return Promise.resolve();
+    });
+    render(<App />);
+    expect(await screen.findByText("已连接 Duolingo，但今天暂未识别到可显示的每日任务。")).toBeInTheDocument();
+  });
+
   it("reports when notification permission is denied", async () => {
     isPermissionGranted.mockResolvedValue(false);
     requestPermission.mockResolvedValue("denied");
