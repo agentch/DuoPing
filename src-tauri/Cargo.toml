@@ -33,3 +33,4 @@ urlencoding = "2"
 
 [target.'cfg(windows)'.dependencies]
 keyring = { version = "3", default-features = false, features = ["windows-native"] }
+notify-rust = { version = "4.18", default-features = false }

@@ -20,6 +20,8 @@ use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_store::StoreExt;
 use tokio::sync::Mutex;
 
+const DUOLINGO_LEARN_URL: &str = "https://www.duolingo.com/learn";
+
 pub struct AppState {
     settings: Mutex<AppSettings>,
     status: Mutex<DailyStatus>,
@@ -70,6 +72,50 @@ fn persist_status(app: &AppHandle, status: &DailyStatus) {
     }
 }
 
+#[cfg(windows)]
+fn send_actionable_notification(
+    app: &AppHandle,
+    title: impl Into<String>,
+    body: impl Into<String>,
+) -> Result<(), String> {
+    use notify_rust::{Notification, NotificationResponse};
+
+    let mut notification = Notification::new();
+    notification
+        .summary(&title.into())
+        .body(&body.into())
+        .app_id(&app.config().identifier)
+        .action("learn", "立即学习");
+    let handle = notification
+        .show()
+        .map_err(|error| format!("无法发送 Windows 通知：{error}"))?;
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let _ = handle.wait_for_response(move |response| match response {
+            NotificationResponse::Default => show_window(&app),
+            NotificationResponse::Action(action) if action == "learn" => {
+                let _ = app.opener().open_url(DUOLINGO_LEARN_URL, None::<&str>);
+            }
+            _ => {}
+        });
+    });
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn send_actionable_notification(
+    app: &AppHandle,
+    title: impl Into<String>,
+    body: impl Into<String>,
+) -> Result<(), String> {
+    app.notification()
+        .builder()
+        .title(title.into())
+        .body(body.into())
+        .show()
+        .map_err(|error| format!("无法发送系统通知：{error}"))
+}
+
 async fn perform_check(app: &AppHandle, state: &Arc<AppState>, notify: bool) -> CheckResult {
     let token = match credential::load() {
         Ok(Some(value)) => value,
@@ -85,12 +131,11 @@ async fn perform_check(app: &AppHandle, state: &Arc<AppState>, notify: bool) -> 
             if error == ProviderError::NotAuthenticated {
                 *state.auth_paused.lock().await = true;
                 if notify {
-                    let _ = app
-                        .notification()
-                        .builder()
-                        .title("DuoPing · 会话已失效")
-                        .body("请打开 DuoPing，重新导入 Duolingo 会话。")
-                        .show();
+                    let _ = send_actionable_notification(
+                        app,
+                        "DuoPing · 会话已失效",
+                        "请打开 DuoPing，重新导入 Duolingo 会话。",
+                    );
                 }
             }
             return to_result(error);
@@ -103,12 +148,11 @@ async fn perform_check(app: &AppHandle, state: &Arc<AppState>, notify: bool) -> 
             if error == ProviderError::NotAuthenticated {
                 *state.auth_paused.lock().await = true;
                 if notify {
-                    let _ = app
-                        .notification()
-                        .builder()
-                        .title("DuoPing · 会话已失效")
-                        .body("请打开 DuoPing，重新导入 Duolingo 会话。")
-                        .show();
+                    let _ = send_actionable_notification(
+                        app,
+                        "DuoPing · 会话已失效",
+                        "请打开 DuoPing，重新导入 Duolingo 会话。",
+                    );
                 }
             }
             return to_result(error);
@@ -134,16 +178,14 @@ async fn perform_check(app: &AppHandle, state: &Arc<AppState>, notify: bool) -> 
     persist_status(app, &status);
     if notify && !status.completed {
         let remaining = status.target_xp.saturating_sub(status.current_xp);
-        if let Err(error) = app
-            .notification()
-            .builder()
-            .title("DuoPing · 今日目标还差一点")
-            .body(format!(
+        if let Err(error) = send_actionable_notification(
+            app,
+            "DuoPing · 今日目标还差一点",
+            format!(
                 "今天已完成 {} XP，还差 {} XP。",
                 status.current_xp, remaining
-            ))
-            .show()
-        {
+            ),
+        ) {
             log::warn!("failed to show notification: {error}");
         }
     }
@@ -259,12 +301,7 @@ async fn clear_session(app: AppHandle, state: State<'_, Arc<AppState>>) -> Resul
 
 #[tauri::command]
 fn test_notification(app: AppHandle) -> Result<(), String> {
-    app.notification()
-        .builder()
-        .title("DuoPing")
-        .body("提醒已准备好。今天也别忘了学习！")
-        .show()
-        .map_err(|_| "无法发送系统通知".into())
+    send_actionable_notification(&app, "DuoPing", "提醒已准备好。点击通知可以打开 DuoPing。")
 }
 
 fn show_window(app: &AppHandle) {
@@ -298,9 +335,7 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => show_window(app),
             "duolingo" => {
-                let _ = app
-                    .opener()
-                    .open_url("https://www.duolingo.com/learn", None::<&str>);
+                let _ = app.opener().open_url(DUOLINGO_LEARN_URL, None::<&str>);
             }
             "check" => {
                 let app = app.clone();

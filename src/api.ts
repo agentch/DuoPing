@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
 import type { AppSettings, CheckResult, DailyStatus } from "./types";
 
 export const api = {
@@ -9,5 +10,8 @@ export const api = {
   importSession: (token: string) => invoke<CheckResult>("import_session", { token }),
   clearSession: () => invoke<void>("clear_session"),
   testNotification: () => invoke<void>("test_notification"),
+  ensureNotificationPermission: async () => {
+    if (await isPermissionGranted()) return true;
+    return (await requestPermission()) === "granted";
+  },
 };
-

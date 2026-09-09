@@ -1,14 +1,24 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
 const invoke = vi.fn();
+const isPermissionGranted = vi.fn();
+const requestPermission = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...args: unknown[]) => invoke(...args) }));
+vi.mock("@tauri-apps/plugin-notification", () => ({
+  isPermissionGranted: () => isPermissionGranted(),
+  requestPermission: () => requestPermission(),
+}));
 
 describe("App", () => {
+  afterEach(cleanup);
+
   beforeEach(() => {
+    isPermissionGranted.mockResolvedValue(true);
+    requestPermission.mockResolvedValue("granted");
     invoke.mockImplementation((command: string) => {
       if (command === "get_settings") {
         return Promise.resolve({ dailyXpGoal: 50, checkTimes: ["18:00", "22:00"], skipIfCompleted: true, autostart: false });
@@ -27,5 +37,15 @@ describe("App", () => {
     expect(screen.getByText("/ 50 XP")).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("get_settings");
     expect(invoke).toHaveBeenCalledWith("get_status");
+  });
+
+  it("reports when notification permission is denied", async () => {
+    isPermissionGranted.mockResolvedValue(false);
+    requestPermission.mockResolvedValue("denied");
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "设置" }));
+    fireEvent.click(screen.getByRole("button", { name: "测试通知" }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("通知权限未开启"));
+    expect(invoke).not.toHaveBeenCalledWith("test_notification");
   });
 });

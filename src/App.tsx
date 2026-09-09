@@ -104,6 +104,22 @@ export default function App() {
     setSettings({ ...settings, checkTimes: next });
   }
 
+  async function testNotification() {
+    setBusy(true);
+    try {
+      if (!(await api.ensureNotificationPermission())) {
+        setMessage("通知权限未开启，请在 Windows 设置中允许 DuoPing 通知");
+        return;
+      }
+      await api.testNotification();
+      setMessage("测试通知已发送，请同时检查 Windows 通知中心");
+    } catch (error) {
+      setMessage(`发送通知失败：${String(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="shell">
       <aside className="sidebar">
@@ -147,7 +163,7 @@ export default function App() {
               <div className="row compact"><input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} /><button onClick={addTime}>添加时间</button></div>
               <label className="toggle"><input type="checkbox" checked={settings.skipIfCompleted} onChange={(e) => { setMessage(""); setSettings({ ...settings, skipIfCompleted: e.target.checked }); }} />完成目标后停止当天提醒</label>
               <label className="toggle"><input type="checkbox" checked={settings.autostart} onChange={(e) => { setMessage(""); setSettings({ ...settings, autostart: e.target.checked }); }} />开机时自动启动</label>
-              <div className="actions"><button className="primary" onClick={saveSettings} disabled={busy}>保存设置</button><button onClick={() => api.testNotification().then(() => setMessage("测试通知已发送"))}>测试通知</button></div>
+              <div className="actions"><button className="primary" onClick={saveSettings} disabled={busy}>保存设置</button><button onClick={testNotification} disabled={busy}>测试通知</button></div>
             </section>
           </>
         )}
