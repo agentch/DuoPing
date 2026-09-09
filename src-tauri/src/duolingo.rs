@@ -244,9 +244,9 @@ fn parse_quests(schema: &Value, progress: &Value, today: NaiveDate) -> Option<Ve
                 .is_some_and(|goal_id| values.is_some_and(|values| values.contains_key(goal_id)))
         })
         .filter_map(|goal| {
-            let id = goal.get("goalId")?.as_str()?.to_owned();
-            let kind = quest_kind(goal.get("category"), &id, today)?;
             let badge_id = goal.get("badgeId").and_then(Value::as_str);
+            let id = goal.get("goalId")?.as_str()?.to_owned();
+            let kind = quest_kind(goal.get("category"), &id, badge_id, today)?;
             let title = goal
                 .get("title")
                 .and_then(|title| title.get("uiString"))
@@ -302,15 +302,24 @@ fn categories(category: Option<&Value>) -> Vec<&str> {
     }
 }
 
-fn quest_kind(category: Option<&Value>, goal_id: &str, today: NaiveDate) -> Option<QuestKind> {
+fn quest_kind(
+    category: Option<&Value>,
+    goal_id: &str,
+    badge_id: Option<&str>,
+    today: NaiveDate,
+) -> Option<QuestKind> {
     let categories = categories(category);
     if categories.iter().any(|value| value.contains("FRIEND")) {
         return Some(QuestKind::Friends);
     }
-    if is_dated_goal_id(goal_id) || categories.iter().any(|value| value.contains("MONTHLY")) {
+    let dated_id = [Some(goal_id), badge_id]
+        .into_iter()
+        .flatten()
+        .find(|value| is_dated_goal_id(value));
+    if dated_id.is_some() || categories.iter().any(|value| value.contains("MONTHLY")) {
         let current_month = today.format("%Y_%m").to_string();
-        return goal_id
-            .starts_with(&current_month)
+        return dated_id
+            .is_some_and(|value| value.starts_with(&current_month))
             .then_some(QuestKind::Monthly);
     }
     categories
@@ -372,6 +381,7 @@ mod tests {
             {"goalId":"friends_xp","category":"FRIENDS_QUESTS","threshold":500,"title":{"uiString":"Earn 500 XP with a friend"}},
             {"goalId":"2026_09_monthly_challenge","category":["DAILY","MONTHLY"],"threshold":50,"title":{"uiString":"September Quest"}},
             {"goalId":"2026_08_monthly_challenge","category":["DAILY","MONTHLY"],"threshold":50,"title":{"uiString":"August Quest"}},
+            {"goalId":"daily_lessons","badgeId":"2021_03_xp_challenge","category":["DAILY"],"threshold":1,"title":{"uiString":"March XP Challenge"}},
             {"goalId":"inactive_daily","category":["DAILY"],"threshold":1,"title":{"uiString":"Inactive"}}
         ]});
         let progress = json!({"goals":{"progress":{"daily_lessons":{"progress":2},"daily_xp":12,"friends_xp":250,"2026_09_monthly_challenge":21,"2026_08_monthly_challenge":50}},"badges":{"earned":["badge_xp"]}});
@@ -444,35 +454,69 @@ mod tests {
     fn classifies_quest_categories_and_current_month() {
         let today = NaiveDate::from_ymd_opt(2026, 9, 8).unwrap();
         assert_eq!(
-            quest_kind(Some(&json!("DAILY_QUEST")), "daily", today),
+            quest_kind(Some(&json!("DAILY_QUEST")), "daily", None, today),
             Some(QuestKind::Daily)
         );
         assert_eq!(
-            quest_kind(Some(&json!("FRIENDS_QUESTS")), "friends", today),
+            quest_kind(Some(&json!("FRIENDS_QUESTS")), "friends", None, today),
             Some(QuestKind::Friends)
         );
         assert_eq!(
-            quest_kind(Some(&json!(["DAILY", "MONTHLY"])), "2026_09_monthly", today),
+            quest_kind(
+                Some(&json!(["DAILY", "MONTHLY"])),
+                "2026_09_monthly",
+                None,
+                today
+            ),
             Some(QuestKind::Monthly)
         );
         assert_eq!(
             quest_kind(
                 Some(&json!("MONTHLY_DAILY_QUEST")),
                 "2026_08_monthly",
+                None,
                 today
             ),
             None
         );
         assert_eq!(
-            quest_kind(Some(&json!("DAILY")), "2021_03_monthly_xp_challenge", today),
+            quest_kind(
+                Some(&json!("DAILY")),
+                "2021_03_monthly_xp_challenge",
+                None,
+                today
+            ),
             None
         );
         assert_eq!(
-            quest_kind(Some(&json!("DAILY")), "2021_03_xp_challenge", today),
+            quest_kind(Some(&json!("DAILY")), "2021_03_xp_challenge", None, today),
             None
         );
         assert_eq!(
-            quest_kind(Some(&json!("DAILY")), "2026_09_monthly_challenge", today),
+            quest_kind(
+                Some(&json!("DAILY")),
+                "2026_09_monthly_challenge",
+                None,
+                today
+            ),
+            Some(QuestKind::Monthly)
+        );
+        assert_eq!(
+            quest_kind(
+                Some(&json!("DAILY")),
+                "daily_goal_daily_quest",
+                Some("2021_03_monthly_xp_challenge"),
+                today
+            ),
+            None
+        );
+        assert_eq!(
+            quest_kind(
+                Some(&json!("DAILY")),
+                "daily_goal_starter_daily_quest",
+                Some("2026_09_monthly_challenge"),
+                today
+            ),
             Some(QuestKind::Monthly)
         );
         assert!(!is_dated_goal_id("daily_xp"));
