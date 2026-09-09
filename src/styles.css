@@ -38,6 +38,12 @@ h1 { margin: 4px 0 0; font-size: clamp(30px, 4vw, 46px); line-height: 1.08; lett
 .section-heading h2 { margin: 5px 0 0; font-size: 21px; }
 .section-heading > strong { color: #487a33; font-family: Georgia, serif; font-size: 24px; }
 .quest-list { display: grid; gap: 10px; }
+.quest-groups { display: grid; gap: 20px; }
+.quest-group-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px; color: #536158; font-size: 12px; }
+.quest-group-heading > strong { font-size: 13px; }
+.quest-group-heading > span { color: #7d847f; }
+.quest-group.friends .quest { background: #eef4fa; }
+.quest-group.monthly .quest { background: #f6f0fb; }
 .quest { display: grid; grid-template-columns: 27px 1fr; gap: 11px; align-items: start; padding: 13px; border-radius: 11px; background: #f5f6f0; }
 .quest.done { background: #edf6e8; }
 .quest-check { width: 22px; height: 22px; border: 2px solid #b8c3b5; border-radius: 50%; display: grid; place-items: center; color: white; font-size: 13px; font-weight: 800; }

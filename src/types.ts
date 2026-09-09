@@ -25,6 +25,7 @@ export interface DailyQuest {
   current: number;
   target: number;
   completed: boolean;
+  kind?: "daily" | "friends" | "monthly";
 }
 
 export type CheckResult =

@@ -70,6 +70,17 @@ pub struct DailyQuest {
     pub current: u32,
     pub target: u32,
     pub completed: bool,
+    #[serde(default)]
+    pub kind: QuestKind,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum QuestKind {
+    #[default]
+    Daily,
+    Friends,
+    Monthly,
 }
 
 impl DailyStatus {

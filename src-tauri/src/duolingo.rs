@@ -5,7 +5,7 @@ use reqwest::{Client, StatusCode};
 use serde_json::Value;
 use thiserror::Error;
 
-use crate::model::DailyQuest;
+use crate::model::{DailyQuest, QuestKind};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UserSummary {
@@ -131,7 +131,7 @@ impl DuolingoProvider for HttpDuolingoProvider {
         };
         let schema = headers(
             self.client
-                .get("https://goals-api.duolingo.com/schema?ui_language=en"),
+                .get("https://goals-api.duolingo.com/schema?ui_language=zh"),
         )
         .send()
         .await
@@ -142,7 +142,7 @@ impl DuolingoProvider for HttpDuolingoProvider {
             .await
             .map_err(|_| ProviderError::UpstreamChanged)?;
         let progress_url = format!(
-            "https://goals-api.duolingo.com/users/{}/progress?timezone={}&ui_language=en",
+            "https://goals-api.duolingo.com/users/{}/progress?timezone={}&ui_language=zh",
             urlencoding::encode(&user.user_id),
             urlencoding::encode(timezone)
         );
@@ -155,7 +155,8 @@ impl DuolingoProvider for HttpDuolingoProvider {
             .json()
             .await
             .map_err(|_| ProviderError::UpstreamChanged)?;
-        parse_daily_quests(&schema, &progress).ok_or(ProviderError::UpstreamChanged)
+        parse_quests(&schema, &progress, chrono::Local::now().date_naive())
+            .ok_or(ProviderError::UpstreamChanged)
     }
 }
 
@@ -217,7 +218,7 @@ fn parse_daily_xp(body: &Value, target: NaiveDate) -> Option<u32> {
     }
 }
 
-fn parse_daily_quests(schema: &Value, progress: &Value) -> Option<Vec<DailyQuest>> {
+fn parse_quests(schema: &Value, progress: &Value, today: NaiveDate) -> Option<Vec<DailyQuest>> {
     let goals = schema.get("goals")?.as_array()?;
     let earned = progress
         .get("badges")
@@ -237,7 +238,6 @@ fn parse_daily_quests(schema: &Value, progress: &Value) -> Option<Vec<DailyQuest
 
     goals
         .iter()
-        .filter(|goal| is_daily_goal(goal.get("category")))
         .filter(|goal| {
             goal.get("goalId")
                 .and_then(Value::as_str)
@@ -245,6 +245,7 @@ fn parse_daily_quests(schema: &Value, progress: &Value) -> Option<Vec<DailyQuest
         })
         .filter_map(|goal| {
             let id = goal.get("goalId")?.as_str()?.to_owned();
+            let kind = quest_kind(goal.get("category"), &id, today)?;
             let badge_id = goal.get("badgeId").and_then(Value::as_str);
             let title = goal
                 .get("title")
@@ -286,20 +287,36 @@ fn parse_daily_quests(schema: &Value, progress: &Value) -> Option<Vec<DailyQuest
                 current,
                 target,
                 completed,
+                kind,
             })
         })
         .collect::<Vec<_>>()
         .into()
 }
 
-fn is_daily_goal(category: Option<&Value>) -> bool {
-    let categories = match category {
+fn categories(category: Option<&Value>) -> Vec<&str> {
+    match category {
         Some(Value::String(value)) => vec![value.as_str()],
         Some(Value::Array(values)) => values.iter().filter_map(Value::as_str).collect(),
-        _ => return false,
-    };
-    categories.iter().any(|value| value.contains("DAILY"))
-        && !categories.iter().any(|value| value.contains("MONTHLY"))
+        _ => vec![],
+    }
+}
+
+fn quest_kind(category: Option<&Value>, goal_id: &str, today: NaiveDate) -> Option<QuestKind> {
+    let categories = categories(category);
+    if categories.iter().any(|value| value.contains("FRIEND")) {
+        return Some(QuestKind::Friends);
+    }
+    if categories.iter().any(|value| value.contains("MONTHLY")) {
+        let current_month = today.format("%Y_%m").to_string();
+        return goal_id
+            .starts_with(&current_month)
+            .then_some(QuestKind::Monthly);
+    }
+    categories
+        .iter()
+        .any(|value| value.contains("DAILY"))
+        .then_some(QuestKind::Daily)
 }
 
 #[cfg(test)]
@@ -333,30 +350,51 @@ mod tests {
     }
 
     #[test]
-    fn parses_daily_quests_with_partial_and_completed_progress() {
+    fn parses_active_daily_friend_and_current_month_quests() {
+        let today = NaiveDate::from_ymd_opt(2026, 9, 8).unwrap();
         let schema = json!({"goals":[
             {"goalId":"daily_lessons","badgeId":"badge_lessons","category":["DAILY"],"metric":"LESSONS","threshold":3,"title":{"uiString":"Complete 3 lessons"}},
             {"goalId":"daily_xp","badgeId":"badge_xp","category":["DAILY"],"metric":"XP","threshold":50,"title":{"uiString":"Earn 50 XP"}},
-            {"goalId":"monthly","category":["DAILY","MONTHLY"],"threshold":1,"title":{"uiString":"Ignore"}},
+            {"goalId":"friends_xp","category":"FRIENDS_QUESTS","threshold":500,"title":{"uiString":"Earn 500 XP with a friend"}},
+            {"goalId":"2026_09_monthly_challenge","category":["DAILY","MONTHLY"],"threshold":50,"title":{"uiString":"September Quest"}},
+            {"goalId":"2026_08_monthly_challenge","category":["DAILY","MONTHLY"],"threshold":50,"title":{"uiString":"August Quest"}},
             {"goalId":"inactive_daily","category":["DAILY"],"threshold":1,"title":{"uiString":"Inactive"}}
         ]});
-        let progress = json!({"goals":{"progress":{"daily_lessons":{"progress":2},"daily_xp":12}},"badges":{"earned":["badge_xp"]}});
+        let progress = json!({"goals":{"progress":{"daily_lessons":{"progress":2},"daily_xp":12,"friends_xp":250,"2026_09_monthly_challenge":21,"2026_08_monthly_challenge":50}},"badges":{"earned":["badge_xp"]}});
         assert_eq!(
-            parse_daily_quests(&schema, &progress),
+            parse_quests(&schema, &progress, today),
             Some(vec![
                 DailyQuest {
                     id: "daily_lessons".into(),
                     title: "Complete 3 lessons".into(),
                     current: 2,
                     target: 3,
-                    completed: false
+                    completed: false,
+                    kind: QuestKind::Daily,
                 },
                 DailyQuest {
                     id: "daily_xp".into(),
                     title: "Earn 50 XP".into(),
                     current: 50,
                     target: 50,
-                    completed: true
+                    completed: true,
+                    kind: QuestKind::Daily,
+                },
+                DailyQuest {
+                    id: "friends_xp".into(),
+                    title: "Earn 500 XP with a friend".into(),
+                    current: 250,
+                    target: 500,
+                    completed: false,
+                    kind: QuestKind::Friends,
+                },
+                DailyQuest {
+                    id: "2026_09_monthly_challenge".into(),
+                    title: "September Quest".into(),
+                    current: 21,
+                    target: 50,
+                    completed: false,
+                    kind: QuestKind::Monthly,
                 },
             ])
         );
@@ -364,38 +402,62 @@ mod tests {
 
     #[test]
     fn rejects_unrecognized_daily_quest_shapes() {
+        let today = NaiveDate::from_ymd_opt(2026, 9, 8).unwrap();
         assert_eq!(
-            parse_daily_quests(&json!({"goals": []}), &json!({"goals": {"progress": {}}})),
+            parse_quests(
+                &json!({"goals": []}),
+                &json!({"goals": {"progress": {}}}),
+                today
+            ),
             Some(vec![])
         );
         assert_eq!(
-            parse_daily_quests(&json!({"goals": [{}]}), &json!({"goals": {"progress": {}}})),
+            parse_quests(
+                &json!({"goals": [{}]}),
+                &json!({"goals": {"progress": {}}}),
+                today
+            ),
             Some(vec![])
         );
         assert_eq!(
-            parse_daily_quests(&json!({"goals": []}), &json!({})),
+            parse_quests(&json!({"goals": []}), &json!({}), today),
             Some(vec![])
         );
-        assert_eq!(parse_daily_quests(&json!({}), &json!({})), None);
+        assert_eq!(parse_quests(&json!({}), &json!({}), today), None);
     }
 
     #[test]
-    fn accepts_string_or_array_daily_categories() {
-        assert!(is_daily_goal(Some(&json!("DAILY"))));
-        assert!(is_daily_goal(Some(&json!("DAILY_QUEST"))));
-        assert!(is_daily_goal(Some(&json!(["DAILY", "CHALLENGE"]))));
-        assert!(is_daily_goal(Some(&json!(["ACTIVE", "DAILY_QUEST"]))));
-        assert!(!is_daily_goal(Some(&json!("MONTHLY"))));
-        assert!(!is_daily_goal(Some(&json!(["DAILY", "MONTHLY"]))));
-        assert!(!is_daily_goal(Some(&json!("MONTHLY_DAILY_QUEST"))));
+    fn classifies_quest_categories_and_current_month() {
+        let today = NaiveDate::from_ymd_opt(2026, 9, 8).unwrap();
+        assert_eq!(
+            quest_kind(Some(&json!("DAILY_QUEST")), "daily", today),
+            Some(QuestKind::Daily)
+        );
+        assert_eq!(
+            quest_kind(Some(&json!("FRIENDS_QUESTS")), "friends", today),
+            Some(QuestKind::Friends)
+        );
+        assert_eq!(
+            quest_kind(Some(&json!(["DAILY", "MONTHLY"])), "2026_09_monthly", today),
+            Some(QuestKind::Monthly)
+        );
+        assert_eq!(
+            quest_kind(
+                Some(&json!("MONTHLY_DAILY_QUEST")),
+                "2026_08_monthly",
+                today
+            ),
+            None
+        );
     }
 
     #[test]
     fn ignores_catalog_quests_when_progress_map_is_omitted() {
+        let today = NaiveDate::from_ymd_opt(2026, 9, 8).unwrap();
         let schema = json!({"goals":[
             {"goalId":"daily_xp","badgeId":"badge_xp","category":"DAILY_QUEST","threshold":50,"title":{"uiString":"Earn 50 XP"}}
         ]});
         let progress = json!({"badges":{"earned":["badge_xp"]}});
-        assert_eq!(parse_daily_quests(&schema, &progress), Some(vec![]));
+        assert_eq!(parse_quests(&schema, &progress, today), Some(vec![]));
     }
 }

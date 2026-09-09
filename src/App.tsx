@@ -104,6 +104,11 @@ export default function App() {
   // Older local status records and test fixtures predate daily quests.
   const quests = status.quests ?? [];
   const completedQuestCount = quests.filter((quest) => quest.completed).length;
+  const questGroups = [
+    { kind: "daily", title: "今日每日任务", quests: quests.filter((quest) => (quest.kind ?? "daily") === "daily") },
+    { kind: "friends", title: "好友任务", quests: quests.filter((quest) => quest.kind === "friends") },
+    { kind: "monthly", title: "本月特别任务", quests: quests.filter((quest) => quest.kind === "monthly") },
+  ].filter((group) => group.quests.length > 0);
 
   async function runCheck() {
     setBusy(true);
@@ -240,14 +245,19 @@ export default function App() {
             <section className="quests-card">
               <div className="section-heading"><div><p className="eyebrow">DAILY QUESTS</p><h2>每日任务</h2></div><strong>{quests.length ? `${completedQuestCount} / ${quests.length}` : "—"}</strong></div>
               {quests.length ? (
-                <div className="quest-list">
-                  {quests.map((quest) => {
-                    const questPercent = Math.min(100, Math.round((quest.current / Math.max(1, quest.target)) * 100));
-                    return <article className={quest.completed ? "quest done" : "quest"} key={quest.id}>
-                      <span className="quest-check">{quest.completed ? "✓" : ""}</span>
-                      <div><strong>{quest.title}</strong><small>{quest.completed ? "已完成" : `${quest.current} / ${quest.target}`}</small><div className="quest-progress"><i style={{ width: `${questPercent}%` }} /></div></div>
-                    </article>;
-                  })}
+                <div className="quest-groups">
+                  {questGroups.map((group) => <section className={`quest-group ${group.kind}`} key={group.kind}>
+                    <div className="quest-group-heading"><strong>{group.title}</strong><span>{group.quests.filter((quest) => quest.completed).length} / {group.quests.length}</span></div>
+                    <div className="quest-list">
+                      {group.quests.map((quest) => {
+                        const questPercent = Math.min(100, Math.round((quest.current / Math.max(1, quest.target)) * 100));
+                        return <article className={quest.completed ? "quest done" : "quest"} key={quest.id}>
+                          <span className="quest-check">{quest.completed ? "✓" : ""}</span>
+                          <div><strong>{quest.title}</strong><small>{quest.completed ? "已完成" : `${quest.current} / ${quest.target}`}</small><div className="quest-progress"><i style={{ width: `${questPercent}%` }} /></div></div>
+                        </article>;
+                      })}
+                    </div>
+                  </section>)}
                 </div>
               ) : (
                 <p className="hint">{status.questsLastSuccessfulCheck

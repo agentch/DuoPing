@@ -20,7 +20,7 @@ Duolingo 未提供供普通第三方应用使用的稳定公开 API。DuoPing �
 1. `GET https://goals-api.duolingo.com/schema?ui_language=en`：读取目标定义。
 2. `GET https://goals-api.duolingo.com/users/{userId}/progress?timezone={IANA 时区}&ui_language=en`：读取当日目标进度和已获徽章。
 
-请求同时携带 Bearer JWT、`x-requested-with: XMLHttpRequest` 与 JSON Accept header。Schema 是包含历史徽章的完整目录，因此适配器只接受分类包含 `DAILY`、不包含 `MONTHLY`，且 `goalId` 存在于本次 `goals.progress` 中的当前激活目标；以 `goalId`/`badgeId` 是否在 `badges.earned` 判断完成状态，以 `goals.progress` 的数值或 `progress` 字段读取单项进度，`threshold` 作为目标值，`title.uiString` 作为标题。任何必需顶层结构缺失都识别为上游格式变化，不向界面传递原始响应。
+请求同时携带 Bearer JWT、`x-requested-with: XMLHttpRequest` 与 JSON Accept header，并使用 `ui_language=zh` 请求可见的中文任务名称。Schema 是包含历史徽章的完整目录，因此适配器只接受 `goalId` 存在于本次 `goals.progress` 中的当前激活目标，并按分类区分：`DAILY` 且非 `MONTHLY` 为今日任务，`FRIEND` 为好友任务，`MONTHLY` 只保留 `YYYY_MM` 与本机当前月份一致的特别任务。以 `goalId`/`badgeId` 是否在 `badges.earned` 判断完成状态，以 `goals.progress` 的数值或 `progress` 字段读取单项进度，`threshold` 作为目标值，`title.uiString` 作为标题。任何必需顶层结构缺失都识别为上游格式变化，不向界面传递原始响应。
 
 ## 风险控制
 
