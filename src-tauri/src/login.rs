@@ -1,4 +1,7 @@
-use tauri::{webview::WebviewWindowBuilder, AppHandle, Manager, Url, WebviewUrl};
+use tauri::{
+    webview::{NewWindowResponse, WebviewWindowBuilder},
+    AppHandle, Manager, Url, WebviewUrl,
+};
 
 pub const LOGIN_WINDOW_LABEL: &str = "duolingo-login";
 const LOGIN_URL: &str = "https://www.duolingo.com/log-in";
@@ -28,6 +31,13 @@ pub fn open(app: &AppHandle) -> Result<(), String> {
         .center()
         .data_directory(data_directory)
         .on_navigation(is_allowed_navigation)
+        .on_new_window(|url, _features| {
+            if is_allowed_navigation(&url) {
+                NewWindowResponse::Allow
+            } else {
+                NewWindowResponse::Deny
+            }
+        })
         .build()
         .map_err(|error| format!("无法打开 Duolingo 登录窗口：{error}"))?;
     Ok(())
