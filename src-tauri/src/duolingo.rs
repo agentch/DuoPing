@@ -307,7 +307,7 @@ fn quest_kind(category: Option<&Value>, goal_id: &str, today: NaiveDate) -> Opti
     if categories.iter().any(|value| value.contains("FRIEND")) {
         return Some(QuestKind::Friends);
     }
-    if categories.iter().any(|value| value.contains("MONTHLY")) {
+    if is_monthly_goal_id(goal_id) || categories.iter().any(|value| value.contains("MONTHLY")) {
         let current_month = today.format("%Y_%m").to_string();
         return goal_id
             .starts_with(&current_month)
@@ -317,6 +317,20 @@ fn quest_kind(category: Option<&Value>, goal_id: &str, today: NaiveDate) -> Opti
         .iter()
         .any(|value| value.contains("DAILY"))
         .then_some(QuestKind::Daily)
+}
+
+fn is_monthly_goal_id(goal_id: &str) -> bool {
+    let mut parts = goal_id.split('_');
+    let (Some(year), Some(month), Some(period)) = (parts.next(), parts.next(), parts.next()) else {
+        return false;
+    };
+    year.len() == 4
+        && year.bytes().all(|value| value.is_ascii_digit())
+        && month.len() == 2
+        && month
+            .parse::<u8>()
+            .is_ok_and(|value| (1..=12).contains(&value))
+        && period == "monthly"
 }
 
 #[cfg(test)]
@@ -449,6 +463,16 @@ mod tests {
             ),
             None
         );
+        assert_eq!(
+            quest_kind(Some(&json!("DAILY")), "2021_03_monthly_xp_challenge", today),
+            None
+        );
+        assert_eq!(
+            quest_kind(Some(&json!("DAILY")), "2026_09_monthly_challenge", today),
+            Some(QuestKind::Monthly)
+        );
+        assert!(!is_monthly_goal_id("daily_xp"));
+        assert!(!is_monthly_goal_id("2026_13_monthly_challenge"));
     }
 
     #[test]
