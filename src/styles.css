@@ -52,5 +52,7 @@ input { border: 1px solid #cfd4cc; border-radius: 9px; background: #fafaf6; padd
 .toggle { display: flex; align-items: center; gap: 9px; margin-top: 17px; font-size: 13px; }
 .toggle input { accent-color: #2e7447; }
 .actions { display: flex; gap: 10px; margin-top: 26px; }
+.login-actions { margin: 16px 0 12px; }
+.fallback { margin-top: 18px; }
 .toast { position: fixed; right: 24px; bottom: 24px; background: #17211b; color: white; border-radius: 11px; padding: 13px 17px; box-shadow: 0 10px 30px #0003; font-size: 13px; }
 @media (max-width: 760px) { body { min-width: 0; } .shell { grid-template-columns: 1fr; } .sidebar { padding: 18px 22px; flex-direction: row; align-items: center; gap: 20px; } .brand { margin: 0; } .brand small, .disclaimer { display: none; } nav { display: flex; margin-left: auto; } .content { padding: 34px 22px; } .cards { grid-template-columns: 1fr; } }

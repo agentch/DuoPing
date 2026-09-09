@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -47,5 +47,28 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "测试通知" }));
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("通知权限未开启"));
     expect(invoke).not.toHaveBeenCalledWith("test_notification");
+  });
+
+  it("opens the embedded Duolingo login window", async () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "设置" }));
+    fireEvent.click(screen.getByRole("button", { name: "登录 Duolingo" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("start_duolingo_login"));
+    expect(await screen.findByRole("button", { name: "等待登录…" })).toBeDisabled();
+  });
+
+  it("automatically dismisses toast messages", async () => {
+    vi.useFakeTimers();
+    isPermissionGranted.mockResolvedValue(false);
+    requestPermission.mockResolvedValue("denied");
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "设置" }));
+    fireEvent.click(screen.getByRole("button", { name: "测试通知" }));
+    await act(async () => Promise.resolve());
+    expect(screen.getByRole("status")).toHaveTextContent("通知权限未开启");
+
+    act(() => vi.advanceTimersByTime(4_000));
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    vi.useRealTimers();
   });
 });

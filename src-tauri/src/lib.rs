@@ -1,5 +1,6 @@
 mod credential;
 mod duolingo;
+mod login;
 mod model;
 mod scheduler;
 
@@ -258,7 +259,14 @@ async fn import_session(
     state: State<'_, Arc<AppState>>,
     token: String,
 ) -> Result<CheckResult, String> {
-    let token = token.trim();
+    import_session_value(&app, state.inner(), token.trim()).await
+}
+
+async fn import_session_value(
+    app: &AppHandle,
+    state: &Arc<AppState>,
+    token: &str,
+) -> Result<CheckResult, String> {
     if token.len() > 8192 {
         return Err("会话令牌长度异常".into());
     }
@@ -282,11 +290,29 @@ async fn import_session(
                 username: Some(user.username),
             };
             *state.status.lock().await = status.clone();
-            persist_status(&app, &status);
+            persist_status(app, &status);
             Ok(CheckResult::Success { status })
         }
         Err(error) => Ok(to_result(error)),
     }
+}
+
+#[tauri::command]
+fn start_duolingo_login(app: AppHandle) -> Result<(), String> {
+    login::open(&app)
+}
+
+#[tauri::command]
+async fn poll_duolingo_login(
+    app: AppHandle,
+    state: State<'_, Arc<AppState>>,
+) -> Result<Option<CheckResult>, String> {
+    let Some(token) = login::token(&app)? else {
+        return Ok(None);
+    };
+    let result = import_session_value(&app, state.inner(), &token).await?;
+    login::close_and_clear(&app);
+    Ok(Some(result))
 }
 
 #[tauri::command]
@@ -389,10 +415,14 @@ pub fn run() {
         })
         .on_window_event(|window, event| match event {
             WindowEvent::CloseRequested { api, .. } => {
-                api.prevent_close();
-                let _ = window.hide();
+                if window.label() == "main" {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
             }
-            WindowEvent::Resized(_) if window.is_minimized().unwrap_or(false) => {
+            WindowEvent::Resized(_)
+                if window.label() == "main" && window.is_minimized().unwrap_or(false) =>
+            {
                 let _ = window.hide();
             }
             _ => {}
@@ -403,6 +433,8 @@ pub fn run() {
             get_status,
             check_now,
             import_session,
+            start_duolingo_login,
+            poll_duolingo_login,
             clear_session,
             test_notification
         ])

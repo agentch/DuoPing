@@ -10,6 +10,8 @@ const defaults: AppSettings = {
   autostart: false,
 };
 
+const TOAST_DURATION_MS = 4_000;
+
 const emptyStatus: DailyStatus = {
   date: new Date().toLocaleDateString("sv-SE"),
   currentXp: 0,
@@ -38,6 +40,7 @@ export default function App() {
   const [newTime, setNewTime] = useState("20:00");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loginActive, setLoginActive] = useState(false);
 
   useEffect(() => {
     Promise.all([api.getSettings(), api.getStatus()])
@@ -47,6 +50,37 @@ export default function App() {
       })
       .catch(() => setMessage("应用服务尚未就绪，请稍后重试"));
   }, []);
+
+  useEffect(() => {
+    if (!message) return;
+    const timer = window.setTimeout(() => setMessage(""), TOAST_DURATION_MS);
+    return () => window.clearTimeout(timer);
+  }, [message]);
+
+  useEffect(() => {
+    if (!loginActive) return;
+    let polling = false;
+    const poll = async () => {
+      if (polling) return;
+      polling = true;
+      try {
+        const result = await api.pollDuolingoLogin();
+        if (result) {
+          setLoginActive(false);
+          if (result.kind === "success") setStatus(result.status);
+          setMessage(result.kind === "success" ? "Duolingo 登录成功" : resultMessage(result));
+        }
+      } catch (error) {
+        setLoginActive(false);
+        setMessage(String(error));
+      } finally {
+        polling = false;
+      }
+    };
+    void poll();
+    const timer = window.setInterval(poll, 1_500);
+    return () => window.clearInterval(timer);
+  }, [loginActive]);
 
   const percent = useMemo(
     () => Math.min(100, Math.round((status.currentXp / Math.max(1, status.targetXp)) * 100)),
@@ -91,6 +125,19 @@ export default function App() {
       setToken("");
       if (result.kind === "success") setStatus(result.status);
       setMessage(resultMessage(result));
+    } catch (error) {
+      setMessage(String(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function startLogin() {
+    setBusy(true);
+    try {
+      await api.startDuolingoLogin();
+      setLoginActive(true);
+      setMessage("请在新窗口中登录 Duolingo");
     } catch (error) {
       setMessage(String(error));
     } finally {
@@ -151,7 +198,9 @@ export default function App() {
             <header><div><p className="eyebrow">PREFERENCES</p><h1>把提醒调成你的节奏。</h1></div></header>
             <section className="settings-card">
               <h2>Duolingo 会话</h2>
-              <p className="hint">在已登录的 duolingo.com Cookie 中复制 <code>jwt_token</code> 的值。不会保存账号密码。</p>
+              <p className="hint">在独立窗口登录，DuoPing 只读取登录完成后的会话，不会读取或保存账号密码。</p>
+              <div className="actions login-actions"><button className="primary" onClick={startLogin} disabled={busy || loginActive}>{loginActive ? "等待登录…" : "登录 Duolingo"}</button></div>
+              <p className="hint fallback">无法使用登录窗口时，可手动导入浏览器中的 <code>jwt_token</code>。</p>
               <div className="row"><input type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="粘贴 jwt_token" autoComplete="off" /><button onClick={importSession} disabled={busy}>导入并验证</button></div>
               <button className="text-button danger" onClick={() => api.clearSession().then(() => { setStatus(emptyStatus); setMessage("会话已清除"); })}>清除本机会话</button>
             </section>
