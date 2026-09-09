@@ -237,15 +237,7 @@ fn parse_daily_quests(schema: &Value, progress: &Value) -> Option<Vec<DailyQuest
 
     goals
         .iter()
-        .filter(|goal| {
-            goal.get("category")
-                .and_then(Value::as_array)
-                .is_some_and(|categories| {
-                    categories
-                        .iter()
-                        .any(|value| value.as_str() == Some("DAILY"))
-                })
-        })
+        .filter(|goal| is_daily_goal(goal.get("category")))
         .map(|goal| {
             let id = goal.get("goalId")?.as_str()?.to_owned();
             let badge_id = goal.get("badgeId").and_then(Value::as_str);
@@ -287,6 +279,14 @@ fn parse_daily_quests(schema: &Value, progress: &Value) -> Option<Vec<DailyQuest
             })
         })
         .collect()
+}
+
+fn is_daily_goal(category: Option<&Value>) -> bool {
+    match category {
+        Some(Value::String(value)) => value == "DAILY",
+        Some(Value::Array(values)) => values.iter().any(|value| value.as_str() == Some("DAILY")),
+        _ => false,
+    }
 }
 
 #[cfg(test)]
@@ -359,5 +359,12 @@ mod tests {
             Some(vec![])
         );
         assert_eq!(parse_daily_quests(&json!({"goals": []}), &json!({})), None);
+    }
+
+    #[test]
+    fn accepts_string_or_array_daily_categories() {
+        assert!(is_daily_goal(Some(&json!("DAILY"))));
+        assert!(is_daily_goal(Some(&json!(["DAILY", "CHALLENGE"]))));
+        assert!(!is_daily_goal(Some(&json!("MONTHLY"))));
     }
 }
