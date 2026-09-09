@@ -4,6 +4,7 @@ import type { AppSettings, CheckResult, DailyStatus } from "./types";
 
 export const api = {
   getSettings: () => invoke<AppSettings>("get_settings"),
+  hasSession: () => invoke<boolean>("has_session"),
   updateSettings: (settings: AppSettings) => invoke<AppSettings>("update_settings", { settings }),
   getStatus: () => invoke<DailyStatus>("get_status"),
   checkNow: () => invoke<CheckResult>("check_now"),

@@ -200,6 +200,11 @@ async fn get_settings(state: State<'_, Arc<AppState>>) -> Result<AppSettings, St
 }
 
 #[tauri::command]
+fn has_session() -> Result<bool, String> {
+    Ok(credential::load()?.is_some())
+}
+
+#[tauri::command]
 async fn update_settings(
     app: AppHandle,
     state: State<'_, Arc<AppState>>,
@@ -455,6 +460,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_settings,
+            has_session,
             update_settings,
             get_status,
             check_now,

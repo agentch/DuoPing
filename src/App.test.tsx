@@ -26,6 +26,7 @@ describe("App", () => {
       if (command === "get_status") {
         return Promise.resolve({ date: "2026-09-08", currentXp: 20, targetXp: 50, completed: false, lastSuccessfulCheck: null, freshness: "fresh", username: "learner" });
       }
+      if (command === "has_session") return Promise.resolve(true);
       return Promise.resolve();
     });
   });

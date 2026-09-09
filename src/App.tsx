@@ -41,12 +41,14 @@ export default function App() {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [loginActive, setLoginActive] = useState(false);
+  const [sessionActive, setSessionActive] = useState(false);
 
   useEffect(() => {
-    Promise.all([api.getSettings(), api.getStatus()])
-      .then(([loadedSettings, loadedStatus]) => {
+    Promise.all([api.getSettings(), api.getStatus(), api.hasSession()])
+      .then(([loadedSettings, loadedStatus, loadedSession]) => {
         setSettings(loadedSettings);
         setStatus(loadedStatus);
+        setSessionActive(loadedSession);
       })
       .catch(() => setMessage("应用服务尚未就绪，请稍后重试"));
   }, []);
@@ -67,6 +69,7 @@ export default function App() {
         const result = await api.pollDuolingoLogin();
         if (result) {
           setLoginActive(false);
+          setSessionActive(result.kind === "success");
           if (result.kind === "success") setStatus(result.status);
           setMessage(result.kind === "success" ? "Duolingo 登录成功" : resultMessage(result));
         }
@@ -123,7 +126,10 @@ export default function App() {
     try {
       const result = await api.importSession(token.trim());
       setToken("");
-      if (result.kind === "success") setStatus(result.status);
+      if (result.kind === "success") {
+        setStatus(result.status);
+        setSessionActive(true);
+      }
       setMessage(resultMessage(result));
     } catch (error) {
       setMessage(String(error));
@@ -159,6 +165,7 @@ export default function App() {
     try {
       await api.clearSession();
       setStatus(emptyStatus);
+      setSessionActive(false);
       setMessage("已退出 Duolingo");
     } catch (error) {
       setMessage(String(error));
@@ -225,7 +232,7 @@ export default function App() {
               </div>
               <p className="hint fallback">无法使用登录窗口时，可手动导入浏览器中的 <code>jwt_token</code>。</p>
               <div className="row"><input type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="粘贴 jwt_token" autoComplete="off" /><button onClick={importSession} disabled={busy}>导入并验证</button></div>
-              <button className="text-button danger" onClick={logout}>{status.username ? "退出登录" : "清除本机会话"}</button>
+              <button className="text-button danger" onClick={logout}>{sessionActive ? "退出登录" : "清除本机会话"}</button>
             </section>
             <section className="settings-card">
               <h2>每日目标</h2>
