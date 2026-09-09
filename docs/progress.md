@@ -34,6 +34,7 @@
 - 应用内登录：使用隔离 WebView 打开 Duolingo 登录页，限制顶层导航域名，自动检测并验证会话后存入 Windows Credential Manager；保留手动 JWT 导入作为回退。
 - 登录窗口空白且无法关闭：移除 WebView2 隐私模式依赖，允许安全的初始空白页，使用独立数据目录并在关闭时显式清理销毁；主界面新增“取消登录”入口。
 - WebView2 事件循环阻塞：Cookie 轮询和登录数据清理不再直接运行于命令或关闭事件处理器，统一移至阻塞线程，避免登录页空白、窗口无法关闭及托盘菜单失效。
+- WebView2 登录窗口创建死锁：`start_duolingo_login` 从同步 Command 改为异步后台创建，避免 Windows 在 IPC 处理器内创建第二个 WebView2 时卡死消息循环。
 - 自动发布：从 `main` 手动输入版本，校验三处版本一致且 Tag 不存在；完整测试和 NSIS 构建通过后自动创建 Tag、GitHub Release 并上传安装包。
 
 ## 当前限制

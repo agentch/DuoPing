@@ -298,8 +298,10 @@ async fn import_session_value(
 }
 
 #[tauri::command]
-fn start_duolingo_login(app: AppHandle) -> Result<(), String> {
-    login::open(&app)
+async fn start_duolingo_login(app: AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || login::open(&app))
+        .await
+        .map_err(|_| "创建 Duolingo 登录窗口的后台任务异常".to_string())?
 }
 
 #[tauri::command]
