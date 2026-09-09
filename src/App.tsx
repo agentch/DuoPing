@@ -155,6 +155,16 @@ export default function App() {
     }
   }
 
+  async function logout() {
+    try {
+      await api.clearSession();
+      setStatus(emptyStatus);
+      setMessage("已退出 Duolingo");
+    } catch (error) {
+      setMessage(String(error));
+    }
+  }
+
   function addTime() {
     const next = normalizeTimes([...settings.checkTimes, newTime]);
     if (next.length === settings.checkTimes.length) return setMessage("时间无效或已存在");
@@ -215,7 +225,7 @@ export default function App() {
               </div>
               <p className="hint fallback">无法使用登录窗口时，可手动导入浏览器中的 <code>jwt_token</code>。</p>
               <div className="row"><input type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="粘贴 jwt_token" autoComplete="off" /><button onClick={importSession} disabled={busy}>导入并验证</button></div>
-              <button className="text-button danger" onClick={() => api.clearSession().then(() => { setStatus(emptyStatus); setMessage("会话已清除"); })}>清除本机会话</button>
+              <button className="text-button danger" onClick={logout}>{status.username ? "退出登录" : "清除本机会话"}</button>
             </section>
             <section className="settings-card">
               <h2>每日目标</h2>

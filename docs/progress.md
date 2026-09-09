@@ -37,6 +37,7 @@
 - WebView2 登录窗口创建死锁：`start_duolingo_login` 从同步 Command 改为异步后台创建，避免 Windows 在 IPC 处理器内创建第二个 WebView2 时卡死消息循环。
 - Google/第三方登录无响应：登录 WebView 允许受信任身份提供商通过 `window.open` 创建 OAuth 弹窗，并拒绝未知域名。
 - 托盘交互：增加 Windows 托盘图标双击事件，双击后恢复并聚焦 DuoPing 主窗口。
+- 会话操作：已登录状态显示“退出登录”，未登录状态显示“清除本机会话”，避免把退出操作隐藏在技术性措辞后面。
 - 自动发布：从 `main` 手动输入版本，校验三处版本一致且 Tag 不存在；完整测试和 NSIS 构建通过后自动创建 Tag、GitHub Release 并上传安装包。
 
 ## 当前限制

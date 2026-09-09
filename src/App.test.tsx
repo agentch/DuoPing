@@ -60,6 +60,15 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "登录 Duolingo" })).toBeEnabled();
   });
 
+  it("shows logout after a session is available", async () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "设置" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "退出登录" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "退出登录" }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("clear_session"));
+    expect(screen.getByRole("button", { name: "清除本机会话" })).toBeInTheDocument();
+  });
+
   it("automatically dismisses toast messages", async () => {
     vi.useFakeTimers();
     isPermissionGranted.mockResolvedValue(false);
