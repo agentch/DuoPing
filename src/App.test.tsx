@@ -7,6 +7,7 @@ import App from "./App";
 const invoke = vi.fn();
 const isPermissionGranted = vi.fn();
 const requestPermission = vi.fn();
+let sessionAvailable = true;
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...args: unknown[]) => invoke(...args) }));
 vi.mock("@tauri-apps/plugin-notification", () => ({
   isPermissionGranted: () => isPermissionGranted(),
@@ -17,6 +18,7 @@ describe("App", () => {
   afterEach(cleanup);
 
   beforeEach(() => {
+    sessionAvailable = true;
     isPermissionGranted.mockResolvedValue(true);
     requestPermission.mockResolvedValue("granted");
     invoke.mockImplementation((command: string) => {
@@ -26,7 +28,7 @@ describe("App", () => {
       if (command === "get_status") {
         return Promise.resolve({ date: "2026-09-08", currentXp: 20, targetXp: 50, completed: false, lastSuccessfulCheck: null, freshness: "fresh", username: "learner" });
       }
-      if (command === "has_session") return Promise.resolve(true);
+      if (command === "has_session") return Promise.resolve(sessionAvailable);
       return Promise.resolve();
     });
   });
@@ -51,9 +53,10 @@ describe("App", () => {
   });
 
   it("opens the embedded Duolingo login window", async () => {
+    sessionAvailable = false;
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "设置" }));
-    fireEvent.click(screen.getByRole("button", { name: "登录 Duolingo" }));
+    fireEvent.click(await screen.findByRole("button", { name: "登录 Duolingo" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("start_duolingo_login"));
     expect(await screen.findByRole("button", { name: "等待登录…" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "取消登录" }));
@@ -67,7 +70,7 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "退出登录" })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "退出登录" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("clear_session"));
-    expect(screen.getByRole("button", { name: "清除本机会话" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "登录 Duolingo" })).toBeInTheDocument();
   });
 
   it("automatically dismisses toast messages", async () => {
