@@ -42,32 +42,17 @@ describe("App", () => {
     expect(invoke).toHaveBeenCalledWith("get_status");
   });
 
-  it("shows daily quest progress returned by the backend", async () => {
+  it("hides quest data returned by the backend while the upstream source is unreliable", async () => {
     invoke.mockImplementation((command: string) => {
       if (command === "get_settings") return Promise.resolve({ dailyXpGoal: 50, checkTimes: ["18:00"], refreshIntervalMinutes: 30, skipIfCompleted: true, autostart: false });
-      if (command === "get_status") return Promise.resolve({ date: "2026-09-08", currentXp: 20, targetXp: 50, completed: false, lastSuccessfulCheck: null, freshness: "fresh", username: "learner", quests: [{ id: "daily_lessons", title: "完成 3 节课程", current: 2, target: 3, completed: false, kind: "daily" }, { id: "daily_xp", title: "获得 50 XP", current: 50, target: 50, completed: true, kind: "daily" }, { id: "friends_xp", title: "和好友一起获得 500 XP", current: 250, target: 500, completed: false, kind: "friends" }, { id: "2026_09_monthly", title: "九月特别任务", current: 21, target: 50, completed: false, kind: "monthly" }], questsLastSuccessfulCheck: "2026-09-08T10:00:00Z" });
+      if (command === "get_status") return Promise.resolve({ date: "2026-09-08", currentXp: 20, targetXp: 50, completed: false, lastSuccessfulCheck: null, freshness: "fresh", username: "learner", quests: [{ id: "daily_lessons", title: "完成 3 节课程", current: 2, target: 3, completed: false, kind: "daily" }], questsLastSuccessfulCheck: "2026-09-08T10:00:00Z" });
       if (command === "has_session") return Promise.resolve(true);
       return Promise.resolve();
     });
     render(<App />);
-    expect(await screen.findByText("完成 3 节课程")).toBeInTheDocument();
-    expect(screen.getByText("2 / 3")).toBeInTheDocument();
-    expect(screen.getByText("已完成")).toBeInTheDocument();
-    expect(screen.getByText("好友任务")).toBeInTheDocument();
-    expect(screen.getByText("和好友一起获得 500 XP")).toBeInTheDocument();
-    expect(screen.getByText("本月特别任务")).toBeInTheDocument();
-    expect(screen.getByText("九月特别任务")).toBeInTheDocument();
-  });
-
-  it("distinguishes a successful empty quest response from an unchecked account", async () => {
-    invoke.mockImplementation((command: string) => {
-      if (command === "get_settings") return Promise.resolve({ dailyXpGoal: 50, checkTimes: ["18:00"], refreshIntervalMinutes: 30, skipIfCompleted: true, autostart: false });
-      if (command === "get_status") return Promise.resolve({ date: "2026-09-08", currentXp: 20, targetXp: 50, completed: false, lastSuccessfulCheck: null, freshness: "fresh", username: "learner", quests: [], questsLastSuccessfulCheck: "2026-09-08T10:00:00Z" });
-      if (command === "has_session") return Promise.resolve(true);
-      return Promise.resolve();
-    });
-    render(<App />);
-    expect(await screen.findByText("已连接 Duolingo，但今天暂未识别到可显示的每日任务。")).toBeInTheDocument();
+    await screen.findByText("@learner");
+    expect(screen.queryByText("每日任务")).not.toBeInTheDocument();
+    expect(screen.queryByText("完成 3 节课程")).not.toBeInTheDocument();
   });
 
   it("reports when notification permission is denied", async () => {
