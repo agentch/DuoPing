@@ -23,7 +23,7 @@ describe("App", () => {
     requestPermission.mockResolvedValue("granted");
     invoke.mockImplementation((command: string) => {
       if (command === "get_settings") {
-        return Promise.resolve({ dailyXpGoal: 50, checkTimes: ["18:00", "22:00"], skipIfCompleted: true, autostart: false });
+        return Promise.resolve({ dailyXpGoal: 50, checkTimes: ["18:00", "22:00"], refreshIntervalMinutes: 30, skipIfCompleted: true, autostart: false });
       }
       if (command === "get_status") {
         return Promise.resolve({ date: "2026-09-08", currentXp: 20, targetXp: 50, completed: false, lastSuccessfulCheck: null, freshness: "fresh", username: "learner" });
@@ -44,7 +44,7 @@ describe("App", () => {
 
   it("shows daily quest progress returned by the backend", async () => {
     invoke.mockImplementation((command: string) => {
-      if (command === "get_settings") return Promise.resolve({ dailyXpGoal: 50, checkTimes: ["18:00"], skipIfCompleted: true, autostart: false });
+      if (command === "get_settings") return Promise.resolve({ dailyXpGoal: 50, checkTimes: ["18:00"], refreshIntervalMinutes: 30, skipIfCompleted: true, autostart: false });
       if (command === "get_status") return Promise.resolve({ date: "2026-09-08", currentXp: 20, targetXp: 50, completed: false, lastSuccessfulCheck: null, freshness: "fresh", username: "learner", quests: [{ id: "daily_lessons", title: "完成 3 节课程", current: 2, target: 3, completed: false, kind: "daily" }, { id: "daily_xp", title: "获得 50 XP", current: 50, target: 50, completed: true, kind: "daily" }, { id: "friends_xp", title: "和好友一起获得 500 XP", current: 250, target: 500, completed: false, kind: "friends" }, { id: "2026_09_monthly", title: "九月特别任务", current: 21, target: 50, completed: false, kind: "monthly" }], questsLastSuccessfulCheck: "2026-09-08T10:00:00Z" });
       if (command === "has_session") return Promise.resolve(true);
       return Promise.resolve();
@@ -61,7 +61,7 @@ describe("App", () => {
 
   it("distinguishes a successful empty quest response from an unchecked account", async () => {
     invoke.mockImplementation((command: string) => {
-      if (command === "get_settings") return Promise.resolve({ dailyXpGoal: 50, checkTimes: ["18:00"], skipIfCompleted: true, autostart: false });
+      if (command === "get_settings") return Promise.resolve({ dailyXpGoal: 50, checkTimes: ["18:00"], refreshIntervalMinutes: 30, skipIfCompleted: true, autostart: false });
       if (command === "get_status") return Promise.resolve({ date: "2026-09-08", currentXp: 20, targetXp: 50, completed: false, lastSuccessfulCheck: null, freshness: "fresh", username: "learner", quests: [], questsLastSuccessfulCheck: "2026-09-08T10:00:00Z" });
       if (command === "has_session") return Promise.resolve(true);
       return Promise.resolve();

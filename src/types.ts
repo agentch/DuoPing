@@ -3,6 +3,7 @@ export type Freshness = "never" | "fresh" | "stale";
 export interface AppSettings {
   dailyXpGoal: number;
   checkTimes: string[];
+  refreshIntervalMinutes: number;
   skipIfCompleted: boolean;
   autostart: boolean;
 }

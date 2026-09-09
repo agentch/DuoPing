@@ -7,7 +7,8 @@ describe("settings", () => {
   });
 
   it("requires a positive integer goal and one time", () => {
-    expect(validateSettings({ dailyXpGoal: 0, checkTimes: ["20:00"], skipIfCompleted: true, autostart: false })).toContain("XP");
-    expect(validateSettings({ dailyXpGoal: 30, checkTimes: [], skipIfCompleted: true, autostart: false })).toContain("时间");
+    expect(validateSettings({ dailyXpGoal: 0, checkTimes: ["20:00"], refreshIntervalMinutes: 30, skipIfCompleted: true, autostart: false })).toContain("XP");
+    expect(validateSettings({ dailyXpGoal: 30, checkTimes: [], refreshIntervalMinutes: 30, skipIfCompleted: true, autostart: false })).toContain("时间");
+    expect(validateSettings({ dailyXpGoal: 30, checkTimes: ["20:00"], refreshIntervalMinutes: 1, skipIfCompleted: true, autostart: false })).toContain("刷新间隔");
   });
 });

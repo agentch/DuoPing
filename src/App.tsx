@@ -6,6 +6,7 @@ import type { AppSettings, CheckResult, DailyStatus } from "./types";
 const defaults: AppSettings = {
   dailyXpGoal: 30,
   checkTimes: ["12:00", "18:00", "22:00"],
+  refreshIntervalMinutes: 30,
   skipIfCompleted: true,
   autostart: false,
 };
@@ -295,6 +296,9 @@ export default function App() {
               <h2>检查时间</h2>
               <div className="time-list">{settings.checkTimes.map((time) => <span key={time}>{time}<button aria-label={`删除 ${time}`} onClick={() => setSettings({ ...settings, checkTimes: settings.checkTimes.filter((item) => item !== time) })}>×</button></span>)}</div>
               <div className="row compact"><input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} /><button onClick={addTime}>添加时间</button></div>
+              <h2>自动刷新</h2>
+              <label>刷新间隔（分钟）<input type="number" min="5" max="1440" step="5" value={settings.refreshIntervalMinutes} onChange={(e) => setSettings({ ...settings, refreshIntervalMinutes: Number(e.target.value) })} /></label>
+              <p className="hint">间隔刷新只更新 XP 和任务数据，不发送通知。</p>
               <label className="toggle"><input type="checkbox" checked={settings.skipIfCompleted} onChange={(e) => { setMessage(""); setSettings({ ...settings, skipIfCompleted: e.target.checked }); }} />完成目标后停止当天提醒</label>
               <label className="toggle"><input type="checkbox" checked={settings.autostart} onChange={(e) => { setMessage(""); setSettings({ ...settings, autostart: e.target.checked }); }} />开机时自动启动</label>
               <div className="actions"><button className="primary" onClick={saveSettings} disabled={busy}>保存设置</button><button onClick={testNotification} disabled={busy}>测试通知</button></div>

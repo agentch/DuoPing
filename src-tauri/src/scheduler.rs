@@ -12,6 +12,7 @@ pub fn start(app: AppHandle, state: Arc<AppState>) {
         if crate::credential::load().ok().flatten().is_some() {
             let _ = perform_check(&app, &state, false).await;
         }
+        let mut last_refresh = tokio::time::Instant::now();
         let mut interval = tokio::time::interval(Duration::from_secs(30));
         loop {
             interval.tick().await;
@@ -19,6 +20,8 @@ pub fn start(app: AppHandle, state: Arc<AppState>) {
                 continue;
             }
             let settings = state.settings.lock().await.clone();
+            let automatic_refresh_due = last_refresh.elapsed()
+                >= Duration::from_secs(u64::from(settings.refresh_interval_minutes) * 60);
             let today = Local::now().date_naive();
             {
                 let mut status = state.status.lock().await;
@@ -34,20 +37,23 @@ pub fn start(app: AppHandle, state: Arc<AppState>) {
                 .filter(|time| !executed.contains(&format!("{today}:{time}")))
                 .cloned()
                 .collect();
-            if pending.is_empty() {
-                continue;
-            }
-            let latest = latest_due(&settings.check_times, &now, &executed, &today.to_string())
-                .expect("pending slots imply a latest due slot");
-            // Mark all elapsed slots so a wake from sleep only catches up the latest one.
-            for time in &pending {
-                executed.insert(format!("{today}:{time}"));
+            let latest = latest_due(&settings.check_times, &now, &executed, &today.to_string());
+            if latest.is_some() {
+                // Mark all elapsed slots so a wake from sleep only catches up the latest one.
+                for time in &pending {
+                    executed.insert(format!("{today}:{time}"));
+                }
             }
             drop(executed);
-            let completed = state.status.lock().await.completed;
-            if settings.skip_if_completed && completed {
+            let scheduled_check_due = latest.is_some();
+            if !scheduled_check_due && !automatic_refresh_due {
                 continue;
             }
+            // Either kind of check refreshes the same data, so reset the interval once here.
+            last_refresh = tokio::time::Instant::now();
+            let completed = state.status.lock().await.completed;
+            let notify = should_notify(scheduled_check_due, settings.skip_if_completed, completed);
+            let check_label = latest.unwrap_or_else(|| "automatic refresh".into());
 
             let app_for_check = app.clone();
             let state_for_check = state.clone();
@@ -56,7 +62,7 @@ pub fn start(app: AppHandle, state: Arc<AppState>) {
                     if delay > 0 {
                         tokio::time::sleep(Duration::from_secs(delay)).await;
                     }
-                    let result = perform_check(&app_for_check, &state_for_check, true).await;
+                    let result = perform_check(&app_for_check, &state_for_check, notify).await;
                     if matches!(
                         result,
                         crate::model::CheckResult::Success { .. }
@@ -67,12 +73,16 @@ pub fn start(app: AppHandle, state: Arc<AppState>) {
                     log::warn!(
                         "scheduled check retry {} failed for slot {}",
                         attempt + 1,
-                        latest
+                        check_label
                     );
                 }
             });
         }
     });
+}
+
+fn should_notify(scheduled_check_due: bool, skip_if_completed: bool, completed: bool) -> bool {
+    scheduled_check_due && !(skip_if_completed && completed)
 }
 
 pub fn latest_due(
@@ -105,5 +115,12 @@ mod tests {
         let executed = HashSet::from(["2026-09-08:18:00".to_string()]);
         let times = vec!["18:00".into()];
         assert_eq!(latest_due(&times, "18:30", &executed, "2026-09-08"), None);
+    }
+
+    #[test]
+    fn completed_goal_suppresses_only_notification() {
+        assert!(!should_notify(true, true, true));
+        assert!(should_notify(true, true, false));
+        assert!(!should_notify(false, true, false));
     }
 }

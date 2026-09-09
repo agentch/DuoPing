@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 pub struct AppSettings {
     pub daily_xp_goal: u32,
     pub check_times: Vec<String>,
+    #[serde(default = "default_refresh_interval_minutes")]
+    pub refresh_interval_minutes: u32,
     pub skip_if_completed: bool,
     pub autostart: bool,
 }
@@ -15,6 +17,7 @@ impl Default for AppSettings {
         Self {
             daily_xp_goal: 30,
             check_times: vec!["12:00".into(), "18:00".into(), "22:00".into()],
+            refresh_interval_minutes: default_refresh_interval_minutes(),
             skip_if_completed: true,
             autostart: false,
         }
@@ -26,6 +29,9 @@ impl AppSettings {
         if !(1..=10_000).contains(&self.daily_xp_goal) {
             return Err("每日 XP 目标需为 1–10000 的整数".into());
         }
+        if !(5..=1_440).contains(&self.refresh_interval_minutes) {
+            return Err("自动刷新间隔需为 5–1440 分钟".into());
+        }
         self.check_times.retain(|value| valid_time(value));
         self.check_times.sort();
         self.check_times.dedup();
@@ -34,6 +40,10 @@ impl AppSettings {
         }
         Ok(self)
     }
+}
+
+const fn default_refresh_interval_minutes() -> u32 {
+    30
 }
 
 fn valid_time(value: &str) -> bool {
@@ -154,10 +164,28 @@ mod tests {
         .normalize()
         .is_err());
         assert!(AppSettings {
+            refresh_interval_minutes: 1,
+            ..Default::default()
+        }
+        .normalize()
+        .is_err());
+        assert!(AppSettings {
             check_times: vec![],
             ..Default::default()
         }
         .normalize()
         .is_err());
+    }
+
+    #[test]
+    fn older_settings_receive_the_default_refresh_interval() {
+        let settings: AppSettings = serde_json::from_value(serde_json::json!({
+            "dailyXpGoal": 30,
+            "checkTimes": ["20:00"],
+            "skipIfCompleted": true,
+            "autostart": false
+        }))
+        .unwrap();
+        assert_eq!(settings.refresh_interval_minutes, 30);
     }
 }
