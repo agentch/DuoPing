@@ -303,8 +303,8 @@ fn start_duolingo_login(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn cancel_duolingo_login(app: AppHandle) {
-    login::close_and_clear(&app);
+async fn cancel_duolingo_login(app: AppHandle) -> Result<(), String> {
+    close_login_window(app).await
 }
 
 #[tauri::command]
@@ -312,12 +312,22 @@ async fn poll_duolingo_login(
     app: AppHandle,
     state: State<'_, Arc<AppState>>,
 ) -> Result<Option<CheckResult>, String> {
-    let Some(token) = login::token(&app)? else {
+    let token_app = app.clone();
+    let Some(token) = tauri::async_runtime::spawn_blocking(move || login::token(&token_app))
+        .await
+        .map_err(|_| "读取 Duolingo 登录状态的后台任务异常".to_string())??
+    else {
         return Ok(None);
     };
     let result = import_session_value(&app, state.inner(), &token).await?;
-    login::close_and_clear(&app);
+    close_login_window(app).await?;
     Ok(Some(result))
+}
+
+async fn close_login_window(app: AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || login::close_and_clear(&app))
+        .await
+        .map_err(|_| "关闭 Duolingo 登录窗口的后台任务异常".to_string())
 }
 
 #[tauri::command]
@@ -425,13 +435,8 @@ pub fn run() {
                     let _ = window.hide();
                 } else if window.label() == login::LOGIN_WINDOW_LABEL {
                     api.prevent_close();
-                    if let Some(login_window) = window
-                        .app_handle()
-                        .get_webview_window(login::LOGIN_WINDOW_LABEL)
-                    {
-                        let _ = login_window.clear_all_browsing_data();
-                        let _ = login_window.destroy();
-                    }
+                    let app = window.app_handle().clone();
+                    tauri::async_runtime::spawn_blocking(move || login::close_and_clear(&app));
                 }
             }
             WindowEvent::Resized(_)

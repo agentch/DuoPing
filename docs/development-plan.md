@@ -26,7 +26,7 @@ v0.1 面向单台 Windows 电脑上的单个 Duolingo 账号，以用户设置�
 - 登录成功后轮询读取 WebView 的 `jwt_token` Cookie，验证账号并保存到 Windows Credential Manager，然后关闭窗口并清理临时浏览数据。
 - 登录窗口只允许 Duolingo 必需域名，拦截未知跳转；保留手动导入 JWT 作为兼容和故障回退入口。
 - 登录 WebView 使用独立数据目录，与外部 Chrome 及主窗口存储隔离，并在完成或取消时清理；Duolingo 没有公开 OAuth 回调，因此不使用外部浏览器自动回传客户端。
-- Windows 安装版必须验证账号密码登录以及 Google/Apple 等第三方登录是否允许嵌入式 WebView；会话检测通过异步命令轮询，避免在 WebView2 主线程同步读取 Cookie。
+- Windows 安装版必须验证账号密码登录以及 Google/Apple 等第三方登录是否允许嵌入式 WebView；会话检测和浏览数据清理均在阻塞线程执行，避免 WebView2 同步 API 卡住 Tauri 事件循环。
 
 ## 发布门槛
 
