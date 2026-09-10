@@ -34,6 +34,7 @@ pub trait DuolingoProvider: Send + Sync {
         user: &UserSummary,
         date: NaiveDate,
     ) -> Result<u32, ProviderError>;
+    #[allow(dead_code)] // Retained while the unreliable quest feature is paused.
     async fn daily_quests(
         &self,
         token: &str,
@@ -218,6 +219,7 @@ fn parse_daily_xp(body: &Value, target: NaiveDate) -> Option<u32> {
     }
 }
 
+#[allow(dead_code)] // Retained while the unreliable quest feature is paused.
 fn parse_quests(schema: &Value, progress: &Value, today: NaiveDate) -> Option<Vec<DailyQuest>> {
     let goals = schema.get("goals")?.as_array()?;
     let earned = progress
@@ -294,6 +296,7 @@ fn parse_quests(schema: &Value, progress: &Value, today: NaiveDate) -> Option<Ve
         .into()
 }
 
+#[allow(dead_code)] // Used by the paused quest parser.
 fn categories(category: Option<&Value>) -> Vec<&str> {
     match category {
         Some(Value::String(value)) => vec![value.as_str()],
@@ -302,6 +305,7 @@ fn categories(category: Option<&Value>) -> Vec<&str> {
     }
 }
 
+#[allow(dead_code)] // Used by the paused quest parser.
 fn quest_kind(
     category: Option<&Value>,
     goal_id: &str,
@@ -335,6 +339,7 @@ fn quest_kind(
         .then_some(QuestKind::Daily)
 }
 
+#[allow(dead_code)] // Used by the paused quest parser.
 fn month_from_title(title: &str) -> Option<u32> {
     let compact = title
         .chars()
@@ -381,6 +386,7 @@ fn month_from_title(title: &str) -> Option<u32> {
         .map(|index| index as u32 + 1)
 }
 
+#[allow(dead_code)] // Used by the paused quest parser.
 fn is_dated_goal_id(goal_id: &str) -> bool {
     let mut parts = goal_id.split('_');
     let (Some(year), Some(month), Some(_remainder)) = (parts.next(), parts.next(), parts.next())

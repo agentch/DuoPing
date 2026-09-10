@@ -160,21 +160,9 @@ async fn perform_check(app: &AppHandle, state: &Arc<AppState>, notify: bool) -> 
             return to_result(error);
         }
     };
-    let (quests, quests_last_successful_check) = match state
-        .provider
-        .daily_quests(&token, &user, &local_timezone())
-        .await
-    {
-        Ok(quests) => (quests, Some(Utc::now())),
-        Err(error) => {
-            log::warn!("failed to read daily quests: {error}");
-            let previous = state.status.lock().await;
-            (
-                previous.quests.clone(),
-                previous.quests_last_successful_check,
-            )
-        }
-    };
+    // Daily quest data is hidden until a reliable upstream source is available.
+    // Do not let its two extra network requests delay XP refreshes.
+    let (quests, quests_last_successful_check) = (vec![], None);
     let settings = state.settings.lock().await.clone();
     let status = DailyStatus {
         date: today,
@@ -304,17 +292,8 @@ async fn import_session_value(
     let today = Local::now().date_naive();
     match state.provider.daily_xp(token, &user, today).await {
         Ok(xp) => {
-            let (quests, quests_last_successful_check) = match state
-                .provider
-                .daily_quests(token, &user, &local_timezone())
-                .await
-            {
-                Ok(quests) => (quests, Some(Utc::now())),
-                Err(error) => {
-                    log::warn!("failed to read daily quests after login: {error}");
-                    (vec![], None)
-                }
-            };
+            // Daily quest data remains paused; session import should also finish promptly.
+            let (quests, quests_last_successful_check) = (vec![], None);
             let settings = state.settings.lock().await.clone();
             let status = DailyStatus {
                 date: today,
@@ -333,10 +312,6 @@ async fn import_session_value(
         }
         Err(error) => Ok(to_result(error)),
     }
-}
-
-fn local_timezone() -> String {
-    iana_time_zone::get_timezone().unwrap_or_else(|_| "UTC".into())
 }
 
 #[tauri::command]

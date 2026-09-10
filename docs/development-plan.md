@@ -9,7 +9,7 @@ v0.1 面向单台 Windows 电脑上的单个 Duolingo 账号，以用户设置�
 - React/TypeScript：状态与设置界面，只通过 Tauri Commands 访问能力。
 - Rust/Tauri：凭据、HTTP 适配器、状态、调度、通知和系统集成。
 - 调度分为静默数据刷新与固定时间提醒：刷新间隔可配置，达到目标后继续刷新数据，仅停止通知。
-- `DuolingoProvider`：隔离非官方 API；原始 JSON 不进入前端。
+- `DuolingoProvider`：隔离非官方 API；原始 JSON 不进入前端。自动刷新当前只请求会话与今日 XP；任务接口保留但暂停调用，避免不可靠数据源拖慢核心刷新。
 - Tauri Store：保存非敏感设置与当天状态；Windows Credential Manager：保存 JWT。
 
 ## 里程碑
