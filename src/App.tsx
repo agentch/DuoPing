@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { api } from "./api";
 import { normalizeTimes, validateSettings } from "./settings";
 import type { AppSettings, CheckResult, DailyStatus } from "./types";
@@ -54,6 +55,16 @@ export default function App() {
         setSessionActive(loadedSession);
       })
       .catch(() => setMessage("应用服务尚未就绪，请稍后重试"));
+  }, []);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void listen<DailyStatus>("status-changed", (event) => setStatus(event.payload))
+      .then((stop) => { unlisten = stop; })
+      .catch(() => {
+        // Browser-based frontend tests do not provide the Tauri event bridge.
+      });
+    return () => unlisten?.();
   }, []);
 
   useEffect(() => {

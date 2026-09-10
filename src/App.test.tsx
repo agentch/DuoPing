@@ -3,12 +3,15 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import type { DailyStatus } from "./types";
 
 const invoke = vi.fn();
 const isPermissionGranted = vi.fn();
 const requestPermission = vi.fn();
+const listen = vi.fn();
 let sessionAvailable = true;
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...args: unknown[]) => invoke(...args) }));
+vi.mock("@tauri-apps/api/event", () => ({ listen: (...args: unknown[]) => listen(...args) }));
 vi.mock("@tauri-apps/plugin-notification", () => ({
   isPermissionGranted: () => isPermissionGranted(),
   requestPermission: () => requestPermission(),
@@ -21,6 +24,7 @@ describe("App", () => {
     sessionAvailable = true;
     isPermissionGranted.mockResolvedValue(true);
     requestPermission.mockResolvedValue("granted");
+    listen.mockResolvedValue(() => {});
     invoke.mockImplementation((command: string) => {
       if (command === "get_settings") {
         return Promise.resolve({ dailyXpGoal: 50, checkTimes: ["18:00", "22:00"], refreshIntervalMinutes: 30, skipIfCompleted: true, autostart: false });
@@ -40,6 +44,30 @@ describe("App", () => {
     expect(screen.getByText("/ 50 XP")).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith("get_settings");
     expect(invoke).toHaveBeenCalledWith("get_status");
+  });
+
+  it("updates the dashboard when the background refresher publishes status", async () => {
+    let onStatusChanged: ((event: { payload: DailyStatus }) => void) | undefined;
+    listen.mockImplementation((_event: string, handler: (event: { payload: DailyStatus }) => void) => {
+      onStatusChanged = handler;
+      return Promise.resolve(() => {});
+    });
+    render(<App />);
+    await screen.findByText("@learner");
+    await act(async () => onStatusChanged?.({
+      payload: {
+        date: "2026-09-10",
+        currentXp: 42,
+        targetXp: 50,
+        completed: false,
+        lastSuccessfulCheck: "2026-09-10T10:00:00Z",
+        freshness: "fresh",
+        username: "learner",
+        quests: [],
+        questsLastSuccessfulCheck: null,
+      },
+    }));
+    expect(screen.getByText("42")).toBeInTheDocument();
   });
 
   it("hides quest data returned by the backend while the upstream source is unreliable", async () => {

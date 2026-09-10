@@ -13,7 +13,7 @@ use model::{AppSettings, CheckResult, DailyStatus, Freshness};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager, State, WindowEvent,
+    AppHandle, Emitter, Manager, State, WindowEvent,
 };
 use tauri_plugin_autostart::ManagerExt as AutostartExt;
 #[cfg(not(windows))]
@@ -195,6 +195,9 @@ async fn perform_check(app: &AppHandle, state: &Arc<AppState>, notify: bool) -> 
         ));
     }
     persist_status(app, &status);
+    if let Err(error) = app.emit("status-changed", &status) {
+        log::warn!("failed to emit refreshed status: {error}");
+    }
     if notify && !status.completed {
         let remaining = status.target_xp.saturating_sub(status.current_xp);
         if let Err(error) = send_actionable_notification(
